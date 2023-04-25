@@ -20,11 +20,9 @@ function makeSymLink(directory, versionTarget) {
  * @returns {Promise<void>}
  */
 module.exports = async function link(progressListener, source) {
-    if (!source) {
-        source = process.cwd();
-    }
+    const resolvedPath = Path.resolve(source || process.cwd());
 
-    const kapetaYmlFilePath = Path.join(source, 'kapeta.yml');
+    const kapetaYmlFilePath = Path.join(resolvedPath, 'kapeta.yml');
     if (!FS.existsSync(kapetaYmlFilePath)) {
         throw new Error('Current working directory is not a valid kapeta asset. Expected a kapeta.yml file');
     }
@@ -37,10 +35,10 @@ module.exports = async function link(progressListener, source) {
     const assetInfo = assetInfos[0];
     const [handle, name] = assetInfo.metadata.name.split('/');
     const target = ClusterConfiguration.getRepositoryAssetPath(handle, name, 'local');
-    makeSymLink(source, target);
+    makeSymLink(resolvedPath, target);
 
     assetInfos.forEach(blockInfo => {
-        progressListener.info('Linked asset %s:local\n  %s --> %s', blockInfo.metadata.name, source, target);
+        progressListener.info('Linked asset %s:local\n  %s --> %s', blockInfo.metadata.name, resolvedPath, target);
     })
 
     await progressListener.check('Linking done', true);
