@@ -71,6 +71,9 @@ class RegistryService {
      */
     async getVersion(name, version) {
         let handle = this.handle;
+        if (!version) {
+            version = 'current';
+        }
 
         if (name.indexOf('/') > -1) {
             [handle, name] = name.split('/');
