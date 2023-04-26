@@ -6,9 +6,14 @@ const ClusterConfiguration = require('@kapeta/local-cluster-config');
 
 
 function makeSymLink(directory, versionTarget) {
-    if (FS.existsSync(versionTarget)) {
-        FSExtra.removeSync(versionTarget);
-    }
+    try {
+        // use lstat to check if there is an existing symlink
+        // throws if nothing is there, but returns file stats even for invalid links
+        // we can't rely on fs.exists, since invalid symlinks return false
+        if (FS.lstatSync(versionTarget)) {
+            FSExtra.removeSync(versionTarget);
+        }
+    } catch(e) {};
     FSExtra.mkdirpSync(Path.dirname(versionTarget));
     FSExtra.createSymlinkSync(directory, versionTarget);
 }
