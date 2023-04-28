@@ -40,7 +40,9 @@ class DockerService {
         } else {
             this._configDir = `${os.tmpdir()}/.docker`;
             this._configFile = `${this._configDir}/config.json`;
-            FS.mkdirSync(this._configDir);
+            if (!FS.existsSync(this._configDir)) {
+                FS.mkdirSync(this._configDir);
+            }
             this._progressListener.info(`Writing temporary docker configuration to ${this._configFile}`);
             config = {};
         }
