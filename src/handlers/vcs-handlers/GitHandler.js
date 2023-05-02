@@ -1,13 +1,12 @@
-const Git = require('simple-git/promise');
+const Git = require('simple-git');
 const _ = require('lodash');
-const Path = require("path");
+const Path = require('path');
 const FS = require('fs');
 
 /**
  * @implements {VCSHandler}
  */
 class GitHandler {
-
     /**
      * Determines if folder is a git repository
      * @param {string} directory
@@ -53,7 +52,6 @@ class GitHandler {
     }
 
     async push(directory, includeTags) {
-
         const [remote, branch] = await this.getRemote(directory);
 
         this._progressListener.debug('Pushing changes to Git remote: %s/%s', remote, branch);
@@ -82,8 +80,7 @@ class GitHandler {
             return [];
         }
 
-        return tag.all
-            .map((tag) => tag.trim());
+        return tag.all.map((tag) => tag.trim());
     }
 
     async tag(directory, tag) {
@@ -93,8 +90,8 @@ class GitHandler {
 
         if (existingTags.indexOf(tag) > -1) {
             //Tag already exists - delete and overwrite
-            await git.raw(['tag','-d', tag]);
-            await git.raw(['push',remote,'--delete',tag]);
+            await git.raw(['tag', '-d', tag]);
+            await git.raw(['push', remote, '--delete', tag]);
         }
 
         this._progressListener.debug('Tagging latest commit: %s', tag);
@@ -134,24 +131,25 @@ class GitHandler {
         const git = Git(directory);
 
         const remoteInfoRaw = await git.remote(['show', remote]);
-        let [,defaultBranch] = /HEAD branch: (.+)/.exec(remoteInfoRaw);
+        let [, defaultBranch] = /HEAD branch: (.+)/.exec(remoteInfoRaw);
 
         if (!defaultBranch) {
-            throw new Error(`Could not determine default branch from git remote: ${remote}, current branch: ${branch}`);
+            throw new Error(
+                `Could not determine default branch from git remote: ${remote}, current branch: ${branch}`
+            );
         }
 
         return {
             branch,
-            main: defaultBranch === branch
+            main: defaultBranch === branch,
         };
     }
 
     async getLatestCommit(directory) {
-        const logs = await Git(directory).log({n:1});
+        const logs = await Git(directory).log({ n: 1 });
 
-        if (logs.latest &&
-            logs.latest.hash) {
-            return logs.latest.hash
+        if (logs.latest && logs.latest.hash) {
+            return logs.latest.hash;
         }
 
         return null;
@@ -173,24 +171,25 @@ class GitHandler {
         if (!relativePath || relativePath === '/') {
             relativePath = '.';
         } else if (!relativePath.startsWith('./')) {
-            relativePath = './' + relativePath
+            relativePath = './' + relativePath;
         } else if (!relativePath.startsWith('.')) {
-            relativePath = '.' + relativePath
+            relativePath = '.' + relativePath;
         }
 
-        const remoteInfo = _.find(remotes, {name: remote});
+        const remoteInfo = _.find(remotes, { name: remote });
 
-        if (remoteInfo.refs &&
-            remoteInfo.refs.fetch) {
+        if (remoteInfo.refs && remoteInfo.refs.fetch) {
             return {
                 url: remoteInfo.refs.fetch,
                 remote: remote,
                 branch: branch,
-                path: relativePath
+                path: relativePath,
             };
         }
 
-        throw new Error('Failed to identify remote checkout url to use. Verify that your local repository is properly configured.');
+        throw new Error(
+            'Failed to identify remote checkout url to use. Verify that your local repository is properly configured.'
+        );
     }
 
     async getRemote(directory) {
@@ -198,7 +197,10 @@ class GitHandler {
         const status = await git.status();
 
         if (status.tracking) {
-            return status.tracking.trim().split(/\//).map(t => t.trim());
+            return status.tracking
+                .trim()
+                .split(/\//)
+                .map((t) => t.trim());
         }
 
         const remotes = await git.getRemotes(true);
@@ -209,41 +211,33 @@ class GitHandler {
         }
 
         if (remotes.length === 1) {
-            return [
-                remotes[0].name.trim(),
-                branch
-            ];
+            return [remotes[0].name.trim(), branch];
         }
 
         if (remotes.length > 1) {
             //Multiple remotes - let's first look for origin
-            const originRemote = _.find(remotes, {name:'origin'});
+            const originRemote = _.find(remotes, { name: 'origin' });
             if (originRemote) {
                 //We check for origin first - that's the most commonly used name for remotes
-                return [
-                    originRemote.name.trim(),
-                    branch
-                ];
+                return [originRemote.name.trim(), branch];
             }
 
             //If origin not found - let's look for known cloud providers like Github
             const cloudRemote = _.find(remotes, (remote) => {
-                return remote.refs &&
-                        remote.refs.push &&
-                        /bitbucket|github|gitlab/i.test(remote.refs.push);
+                return (
+                    remote.refs &&
+                    remote.refs.push &&
+                    /bitbucket|github|gitlab/i.test(remote.refs.push)
+                );
             });
 
             if (cloudRemote) {
                 //We check for origin first - that's the most commonly used name for remotes
-                return [
-                    originRemote.name.trim(),
-                    branch
-                ];
+                return [originRemote.name.trim(), branch];
             }
         }
 
         throw new Error('Failed to identify remote to use and local branch is not tracking any.');
-
     }
 
     /**
@@ -256,12 +250,14 @@ class GitHandler {
     async clone(checkoutInfo, checkoutId, targetFolder) {
         const git = Git();
 
-        const isRepo = FS.existsSync(targetFolder) && await Git(targetFolder).checkIsRepo();
+        const isRepo = FS.existsSync(targetFolder) && (await Git(targetFolder).checkIsRepo());
 
         if (isRepo) {
             const directoryInfo = await this.getCheckoutInfo(targetFolder);
             if (directoryInfo.url !== checkoutInfo.url) {
-                throw new Error(`Git repository already exists in ${targetFolder} and does not match ${checkoutInfo.url}`);
+                throw new Error(
+                    `Git repository already exists in ${targetFolder} and does not match ${checkoutInfo.url}`
+                );
             }
 
             await this._progressListener.check(`Git repository existed and matched`, true);
@@ -269,21 +265,28 @@ class GitHandler {
             let url = checkoutInfo.url;
             if (url.startsWith('https://github.com/')) {
                 //We prefer the git protocol over https for github
-                url =  url.replace('https://github.com/', 'git@github.com:') + '.git';
+                url = url.replace('https://github.com/', 'git@github.com:') + '.git';
             }
-            if (checkoutInfo.path &&
-                checkoutInfo.path !== '.') {
-                await this._progressListener.progress(`Cloning sparse GIT repository ${url} to ${targetFolder}`, async () => {
-                    await git.clone(url, targetFolder, ['--no-checkout']);
-                    await Git(targetFolder).addConfig('core.sparsecheckout', 'true');
-                    FS.writeFileSync(Path.join(targetFolder,'.git/info/sparse-checkout'), checkoutInfo.path.substring(2));
-                });
+            if (checkoutInfo.path && checkoutInfo.path !== '.') {
+                await this._progressListener.progress(
+                    `Cloning sparse GIT repository ${url} to ${targetFolder}`,
+                    async () => {
+                        await git.clone(url, targetFolder, ['--no-checkout']);
+                        await Git(targetFolder).addConfig('core.sparsecheckout', 'true');
+                        FS.writeFileSync(
+                            Path.join(targetFolder, '.git/info/sparse-checkout'),
+                            checkoutInfo.path.substring(2)
+                        );
+                    }
+                );
             } else {
-                await this._progressListener.progress(`Cloning GIT repository ${url} to ${targetFolder}`, async () => {
-                    await git.clone(url, targetFolder);
-                });
+                await this._progressListener.progress(
+                    `Cloning GIT repository ${url} to ${targetFolder}`,
+                    async () => {
+                        await git.clone(url, targetFolder);
+                    }
+                );
             }
-
         }
 
         const gitRepo = Git(targetFolder);
