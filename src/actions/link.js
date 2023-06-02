@@ -3,6 +3,7 @@ const Path = require("node:path");
 const FS = require("node:fs");
 const FSExtra = require('fs-extra');
 const ClusterConfiguration = require('@kapeta/local-cluster-config');
+const glob = require("glob");
 
 
 function makeSymLink(directory, versionTarget) {
@@ -22,9 +23,9 @@ function makeSymLink(directory, versionTarget) {
  *
  * @param {ProgressListener} progressListener
  * @param {string} [source=process.cwd()]
- * @returns {Promise<void>}
+ * @returns {void}
  */
-module.exports = async function link(progressListener, source) {
+module.exports = function link(progressListener, source) {
     const resolvedPath = Path.resolve(source || process.cwd());
 
     const kapetaYmlFilePath = Path.join(resolvedPath, 'kapeta.yml');
@@ -40,12 +41,25 @@ module.exports = async function link(progressListener, source) {
     const assetInfo = assetInfos[0];
     const [handle, name] = assetInfo.metadata.name.split('/');
     const target = ClusterConfiguration.getRepositoryAssetPath(handle, name, 'local');
+
+
+    assetInfos.forEach(assetInfo => {
+        if (assetInfo.kind === 'core/plan') {
+
+            //Asset is a plan - we need to link any locally defined assets as well
+            const assetFiles = glob.sync('*/**/kapeta.yml', {cwd: resolvedPath});
+            if (assetFiles.length > 0) {
+                progressListener.info('Linking local plan asset');
+                assetFiles.forEach(assetFile => {
+                    link(progressListener, Path.dirname(assetFile));
+                });
+            }
+        }
+        progressListener.info('Linked asset %s:local\n  %s --> %s', assetInfo.metadata.name, resolvedPath, target);
+    });
+
     makeSymLink(resolvedPath, target);
 
-    assetInfos.forEach(blockInfo => {
-        progressListener.info('Linked asset %s:local\n  %s --> %s', blockInfo.metadata.name, resolvedPath, target);
-    })
-
-    await progressListener.check('Linking done', true);
+    progressListener.check('Linking done', true);
 
 };
