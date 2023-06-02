@@ -22,8 +22,8 @@
   },
   "dependencies": {
     "@kapeta/local-cluster-config": "<2",
-    "@kapeta/nodejs-api-client": "^0.0.10",
-    "@kapeta/nodejs-utils": "^0.0.10",
+      "@kapeta/nodejs-api-client": "<2",
+      "@kapeta/nodejs-utils": "<2",
     "blessed": "^0.1.81",
     "docker-file-parser": "^1.0.7",
     "folder-hash": "^4.0.4",
@@ -45,7 +45,7 @@
     "@types/node": "^18.16.0"
   },
   "prettier": {
-    "printWidth": 100,
+    "printWidth": 120,
     "tabWidth": 4,
     "singleQuote": true
   }
