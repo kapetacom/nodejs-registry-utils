@@ -2,7 +2,7 @@ const YAML = require('yaml');
 const Path = require("node:path");
 const FS = require("node:fs");
 const FSExtra = require('fs-extra');
-const ClusterConfiguration = require('@kapeta/local-cluster-config');
+const ClusterConfiguration = require('@kapeta/local-cluster-config').default;
 const glob = require("glob");
 
 

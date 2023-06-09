@@ -2,7 +2,7 @@ const FS = require('node:fs');
 const {parseKapetaUri} = require('@kapeta/nodejs-utils');
 
 const FSExtra = require('fs-extra');
-const ClusterConfiguration = require('@kapeta/local-cluster-config');
+const ClusterConfiguration = require('@kapeta/local-cluster-config').default;
 
 /**
  *

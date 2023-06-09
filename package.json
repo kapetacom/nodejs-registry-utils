@@ -21,7 +21,7 @@
     "build": "echo no build yet"
   },
   "dependencies": {
-    "@kapeta/local-cluster-config": "<2",
+    "@kapeta/local-cluster-config": ">= 0.2.3 < 2",
       "@kapeta/nodejs-api-client": "<2",
       "@kapeta/nodejs-utils": "<2",
     "blessed": "^0.1.81",

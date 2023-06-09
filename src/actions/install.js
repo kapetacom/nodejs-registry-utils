@@ -5,7 +5,7 @@ const {parseKapetaUri} = require('@kapeta/nodejs-utils');
 
 const YAML = require('yaml');
 const FSExtra = require('fs-extra');
-const ClusterConfiguration = require('@kapeta/local-cluster-config');
+const ClusterConfiguration = require('@kapeta/local-cluster-config').default;
 const RegistryService = require("../services/RegistryService");
 const ArtifactHandler = require("../handlers/ArtifactHandler");
 const Config = require("../config");
