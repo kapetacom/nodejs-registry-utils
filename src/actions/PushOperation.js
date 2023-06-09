@@ -8,7 +8,7 @@ const VCSHandler = require("../handlers/VCSHandler");
 const Config = require("../config");
 
 const {parseKapetaUri} = require('@kapeta/nodejs-utils');
-const ClusterConfiguration = require("@kapeta/local-cluster-config");
+const ClusterConfiguration = require('@kapeta/local-cluster-config').default;
 const glob = require("glob");
 const {KapetaAPI} = require("@kapeta/nodejs-api-client");
 

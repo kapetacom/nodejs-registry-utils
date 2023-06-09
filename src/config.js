@@ -1,6 +1,6 @@
 const FS = require('fs');
 const YAML = require('yaml');
-const ClusterConfiguration = require('@kapeta/local-cluster-config');
+const ClusterConfiguration = require('@kapeta/local-cluster-config').default;
 
 const BASEDIR_KAPETA = ClusterConfiguration.getKapetaBasedir();
 
