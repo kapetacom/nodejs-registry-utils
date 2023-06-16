@@ -47,7 +47,7 @@ module.exports = function link(progressListener, source) {
         if (assetInfo.kind === 'core/plan') {
 
             //Asset is a plan - we need to link any locally defined assets as well
-            const assetFiles = glob.sync('*/**/kapeta.yml', {cwd: resolvedPath});
+            const assetFiles = glob.sync('*/**/kapeta.yml', {cwd: resolvedPath, absolute: true});
             if (assetFiles.length > 0) {
                 progressListener.info('Linking local plan asset');
                 assetFiles.forEach(assetFile => {
