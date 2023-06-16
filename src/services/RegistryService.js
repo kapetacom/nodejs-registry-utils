@@ -1,8 +1,7 @@
 const request = require('request-promise-native');
-const {KapetaAPI} = require('@kapeta/nodejs-api-client');
+const { KapetaAPI } = require('@kapeta/nodejs-api-client');
 
 class RegistryService {
-
     /**
      *
      * @param {string} baseUrl
@@ -20,7 +19,7 @@ class RegistryService {
      * @returns {Promise<AssetReference[]>}
      */
     async resolveDependencies(asset) {
-        return  this._request('POST', `/dependencies/resolve`, asset);
+        return this._request('POST', `/dependencies/resolve`, asset);
     }
 
     /**
@@ -30,7 +29,7 @@ class RegistryService {
      * @return {Promise<AssetDefinition>}
      */
     async updateDependencies(asset, dependencies) {
-        return  this._request('POST', `/dependencies/update`, {asset,dependencies});
+        return this._request('POST', `/dependencies/update`, { asset, dependencies });
     }
 
     /**
@@ -39,7 +38,7 @@ class RegistryService {
      * @returns {Promise<Reservation>}
      */
     async reserveVersions(assets) {
-        return  this._request('POST', `/reserve`, assets);
+        return this._request('POST', `/reserve`, assets);
     }
 
     /**
@@ -48,9 +47,9 @@ class RegistryService {
      * @param {AssetVersion[]} assetVersions
      * @returns {Promise<void>}
      */
-    async commitReservation(reservationId, assetVersions ) {
+    async commitReservation(reservationId, assetVersions) {
         return this._request('POST', `/commit`, assetVersions, {
-            'If-Match': reservationId
+            'If-Match': reservationId,
         });
     }
 
@@ -79,7 +78,10 @@ class RegistryService {
             [handle, name] = name.split('/');
         }
 
-        return this._request('GET', `/${encodeURIComponent(handle)}/${encodeURIComponent(name)}/${encodeURIComponent(version)}`);
+        return this._request(
+            'GET',
+            `/${encodeURIComponent(handle)}/${encodeURIComponent(name)}/${encodeURIComponent(version)}`
+        );
     }
 
     /**
@@ -89,12 +91,15 @@ class RegistryService {
      * @returns {Promise<AssetVersion>}
      */
     async getLatestVersionBefore(name, version) {
-        return this._request('GET', `/${encodeURIComponent(this.handle)}/${encodeURIComponent(name)}/${encodeURIComponent(version)}/previous`);
+        return this._request(
+            'GET',
+            `/${encodeURIComponent(this.handle)}/${encodeURIComponent(name)}/${encodeURIComponent(version)}/previous`
+        );
     }
 
     async _request(method, path, body, headers) {
         const authHeaders = {};
-        const token = await this.api.getAccessToken();
+        const token = await this.api.getAccessToken().catch(() => undefined);
         if (token) {
             authHeaders['authorization'] = `Bearer ${token}`;
         }
@@ -105,16 +110,18 @@ class RegistryService {
                 body: body,
                 json: true,
                 headers: {
-                    'accept': 'application/json',
+                    accept: 'application/json',
                     ...authHeaders,
-                    ...headers
-                }
+                    ...headers,
+                },
             };
 
             return await request(requestOptions);
-        } catch(e) {
+        } catch (e) {
             if (e.message.indexOf('ECONNREFUSED') > -1) {
-                throw new Error(`Failed to reach Kapeta registry on ${this.baseUrl}. Please check your settings and try again.`);
+                throw new Error(
+                    `Failed to reach Kapeta registry on ${this.baseUrl}. Please check your settings and try again.`
+                );
             }
 
             if (e.statusCode > 0) {
@@ -134,6 +141,5 @@ class RegistryService {
         }
     }
 }
-
 
 module.exports = RegistryService;
