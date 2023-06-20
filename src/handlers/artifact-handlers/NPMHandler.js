@@ -181,25 +181,24 @@ class NPMHandler {
      */
     async install(sourcePath, targetPath) {
 
-        const files = FS.readdirSync(sourcePath);
+        const files = await FSExtra.readdir(sourcePath);
         const tarFiles = files.filter(file => /.tgz$/.test(file));
 
         if (tarFiles.length !== 1) {
             throw new Error('Invalid kapeta asset');
         }
 
-        if (FS.existsSync(targetPath)) {
-            FSExtra.removeSync(targetPath);
+        if (await FSExtra.exists(targetPath)) {
+            await FSExtra.remove(targetPath);
         }
 
-        FSExtra.mkdirpSync(targetPath);
+        await FSExtra.mkdirp(targetPath);
 
         const absolutePath = Path.join(sourcePath, tarFiles[0]);
 
-        tar.extract({
+        await tar.extract({
             file: absolutePath,
             cwd: targetPath,
-            sync: true,
             strip: 1 //Needed since we've got a random root directory we want to ignore
         });
 
