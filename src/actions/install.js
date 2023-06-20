@@ -20,6 +20,7 @@ const attemptedToInstall = {};
  * @return {Promise<*>}
  */
 module.exports = async function install(progressListener, uris, options) {
+    console.trace('TEST INSTALL', uris);
     const allDependencies = {};
     const api = new KapetaAPI();
     const accessToken = await api.getAccessToken().catch(() => undefined);
@@ -43,7 +44,7 @@ module.exports = async function install(progressListener, uris, options) {
                 throw new Error('Registration is missing artifact information: ' + uri);
             }
 
-            const installPath = ClusterConfiguration.getRepositoryAssetPath(
+            const { baseDir: installPath, versionFile: installVersion } = ClusterConfiguration.getRepositoryAssetInfoPath(
                 assetInfo.handle,
                 assetInfo.name,
                 assetVersion.version
@@ -52,7 +53,7 @@ module.exports = async function install(progressListener, uris, options) {
             attemptedToInstall[`${assetInfo.handle}/${assetInfo.name}:${assetVersion.version}`] = true;
 
             const assetExists = await progressListener.progress('Checking if asset exists', () =>
-                Promise.resolve(FS.existsSync(installPath))
+                FSExtra.pathExists(installVersion)
             );
             if (assetExists) {
                 await progressListener.check(`Asset already installed at ${installPath}`, true);
@@ -78,15 +79,15 @@ module.exports = async function install(progressListener, uris, options) {
                 assetInfo.name,
                 assetVersion.version
             );
-            if (FS.existsSync(tmpFolder)) {
-                FSExtra.removeSync(tmpFolder);
+            if (await FSExtra.pathExists(tmpFolder)) {
+                await FSExtra.remove(tmpFolder);
             }
 
-            FSExtra.mkdirpSync(tmpFolder);
+            await FSExtra.mkdirp(tmpFolder);
 
             await handler.pull(assetVersion.artifact.details, tmpFolder, registryService);
 
-            FSExtra.mkdirpSync(installPath);
+            await FSExtra.mkdirp(installPath);
 
             await handler.install(tmpFolder, installPath);
 
@@ -96,20 +97,21 @@ module.exports = async function install(progressListener, uris, options) {
                 assetVersion.version
             );
 
-            FSExtra.mkdirpSync(baseDir);
+            await FSExtra.mkdirp(baseDir);
 
             //Write the asset file - it's usually included in the package but might contain multiple
-            FS.writeFileSync(assetFile, YAML.stringify(assetVersion.content));
+            await FSExtra.writeFile(assetFile, YAML.stringify(assetVersion.content));
             progressListener.info(`Wrote asset information to ${assetFile}`);
 
             //Write version information to file
-            FS.writeFileSync(versionFile, YAML.stringify(assetVersion));
+            await FSExtra.writeFile(versionFile, YAML.stringify(assetVersion));
             progressListener.info(`Wrote version information to ${versionFile}`);
 
             assetVersion.dependencies.forEach((d) => {
                 allDependencies[d.name] = true;
             });
         } catch (e) {
+            console.error(e);
             progressListener.error(`Failed to install: ${e.stack}`);
         }
     }
