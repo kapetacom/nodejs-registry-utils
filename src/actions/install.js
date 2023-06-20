@@ -20,7 +20,6 @@ const attemptedToInstall = {};
  * @return {Promise<*>}
  */
 module.exports = async function install(progressListener, uris, options) {
-    console.trace('TEST INSTALL', uris);
     const allDependencies = {};
     const api = new KapetaAPI();
     const accessToken = await api.getAccessToken().catch(() => undefined);
@@ -44,11 +43,8 @@ module.exports = async function install(progressListener, uris, options) {
                 throw new Error('Registration is missing artifact information: ' + uri);
             }
 
-            const { baseDir: installPath, versionFile: installVersion } = ClusterConfiguration.getRepositoryAssetInfoPath(
-                assetInfo.handle,
-                assetInfo.name,
-                assetVersion.version
-            );
+            const { baseDir: installPath, versionFile: installVersion } =
+                ClusterConfiguration.getRepositoryAssetInfoPath(assetInfo.handle, assetInfo.name, assetVersion.version);
 
             attemptedToInstall[`${assetInfo.handle}/${assetInfo.name}:${assetVersion.version}`] = true;
 
