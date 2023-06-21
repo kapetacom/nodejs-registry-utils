@@ -1,4 +1,5 @@
 const _ = require('lodash');
+const {parseCommit, validateCommit, applyPlugins, mappers}  = require('parse-commit-message');
 
 exports.parseVersion = function parseVersion(version) {
     let [major, minor, patch] = version.split(/\./g);
@@ -57,4 +58,46 @@ exports.parseVersion = function parseVersion(version) {
             return this.toFullVersion();
         }
     };
+}
+
+/**
+ * Get version increment from git logs
+ *
+ * Calculated from conventional commits:
+ * https://www.conventionalcommits.org/en/v1.0.0/
+ *
+ * @param {string[]} gitLogs
+ * @returns {'PATCH'|'MINOR'|'MAJOR'|'NONE'} Version increment - NONE is returned if no commits are found
+ */
+exports.calculateVersionIncrement = function calculateVersionIncrement(gitLogs) {
+    if (!gitLogs || gitLogs.length === 0) {
+        return 'NONE';
+    }
+    const result = gitLogs.map((log) => {
+        try {
+            return parseCommit(log)
+        } catch (e) {
+            return null;
+        }
+    }).filter((commit) => {
+        if (!commit) {
+            return false;
+        }
+
+        return validateCommit(commit, true);
+    });
+    const commits = applyPlugins([mappers.increment], result);
+    let increment = 'patch';
+    for (const commit of commits) {
+        if (commit.isBreaking) {
+            increment = 'major';
+            break;
+        }
+
+        if (commit.increment === 'minor') {
+            increment = 'minor';
+        }
+    }
+
+    return increment.toUpperCase();
 }

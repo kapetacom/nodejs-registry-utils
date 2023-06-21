@@ -1,5 +1,6 @@
 const request = require('request-promise-native');
 const { KapetaAPI } = require('@kapeta/nodejs-api-client');
+const {parseKapetaUri} = require("@kapeta/nodejs-utils");
 
 class RegistryService {
     /**
@@ -94,6 +95,19 @@ class RegistryService {
         return this._request(
             'GET',
             `/${encodeURIComponent(this.handle)}/${encodeURIComponent(name)}/${encodeURIComponent(version)}/previous`
+        );
+    }
+
+    /**
+     *
+     * @param {string} name - Full name of the asset (handle/name)
+     * @returns {Promise<AssetVersion>}
+     */
+    async getCurrentVersion(name) {
+        const uri = parseKapetaUri(name);
+        return this._request(
+            'GET',
+            `/${encodeURIComponent(uri.handle)}/${encodeURIComponent(uri.name)}/current`
         );
     }
 

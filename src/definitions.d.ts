@@ -135,6 +135,8 @@ interface VCSHandler {
 
     getLatestCommit(directory: string): Promise<string>
 
+    getCommitsSince(directory, commitId): Promise<string[]>
+
     getBranch(directory: string): Promise<{branch:string,main:boolean}>
 
     getRemote(directory: string): Promise<string[]>
@@ -181,6 +183,7 @@ interface Reservation {
 interface ReservationRequest {
     mainBranch:boolean
     branchName:string
+    minimumIncrement?:string
     assets:AssetDefinition[]
 }
 

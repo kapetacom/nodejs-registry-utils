@@ -11,6 +11,7 @@ const {parseKapetaUri} = require('@kapeta/nodejs-utils');
 const ClusterConfiguration = require('@kapeta/local-cluster-config').default;
 const glob = require("glob");
 const {KapetaAPI} = require("@kapeta/nodejs-api-client");
+const {calculateVersionIncrement} = require("../utils/version-utils");
 
 const LOCAL_VERSION_MAPPING_CACHE = {};
 
@@ -183,6 +184,15 @@ class PushOperation {
         return this.reservation;
     }
 
+    /**
+     *
+     * @param {string} name
+     * @returns {Promise<AssetVersion>}
+     */
+    async getCurrentVersion(name) {
+        return this._registryService.getCurrentVersion(name);
+    }
+
     _hasScript(file) {
         const scriptPath = './scripts/' + file;
         return FS.existsSync(scriptPath);
@@ -230,8 +240,8 @@ class PushOperation {
         const baseDir = Path.dirname(this.file);
         const assetFiles = glob.sync('*/**/kapeta.yml', {cwd: baseDir});
         const localAssets = {};
-        for(let assetFile of assetFiles) {
-            const fullPath = Path.join(baseDir,assetFile);
+        for (let assetFile of assetFiles) {
+            const fullPath = Path.join(baseDir, assetFile);
             const yamlData = FS.readFileSync(fullPath).toString();
             const assets = YAML.parseAllDocuments(yamlData).map(doc => doc.toJSON());
             assets.forEach(asset => {
@@ -247,7 +257,7 @@ class PushOperation {
         await this._progressListener.progress(`Checking ${Object.keys(localAssets).length} dependencies`, async () => {
             const newAssets = [];
 
-            for(let assetDefinition of this.assetDefinitions) {
+            for (let assetDefinition of this.assetDefinitions) {
                 newAssets.push(await this._checkDependenciesFor(assetDefinition, localAssets));
             }
 
@@ -255,7 +265,6 @@ class PushOperation {
             this.assetDefinitions = newAssets;
         });
     }
-
 
 
     /**
@@ -267,14 +276,12 @@ class PushOperation {
      */
     async _checkDependenciesFor(asset, localAssets) {
         const dependencies = await this.resolveDependencies(asset);
-
-        console.log('dependencies', dependencies);
         /**
          *
          * @type {ReferenceMap[]}
          */
         const dependencyChanges = [];
-        for(let dependency of dependencies) {
+        for (let dependency of dependencies) {
             const dependencyUri = parseKapetaUri(dependency.name);
             if (dependencyUri.version !== 'local') {
                 //If not local all is well
@@ -324,7 +331,7 @@ class PushOperation {
 
                 if (references &&
                     references.length > 0) {
-                    for(let reference of references) {
+                    for (let reference of references) {
                         const referenceUri = parseKapetaUri(reference);
                         if (referenceUri.handle === dependencyUri.handle &&
                             referenceUri.name === dependencyUri.name &&
@@ -383,6 +390,57 @@ class PushOperation {
 
     /**
      *
+     * @param {string} assetName - name of asset - e.g. my-handle/some-name
+     * @returns {Promise<"PATCH"|"MINOR"|"MAJOR"|"NONE">}
+     */
+    async calculateConventionalIncrement(assetName) {
+        const handler = await this.vcsHandler();
+        const latestVersion = await this.getCurrentVersion(assetName);
+
+        if (!latestVersion?.repository?.commit) {
+            //Latest version didn't exist or didn't have a commit. We can't calculate increment
+            return 'NONE';
+        }
+
+        const commits = await handler.getCommitsSince(
+            this._directory,
+            latestVersion.repository.commit
+        );
+
+        return calculateVersionIncrement(commits);
+    }
+
+    /**
+     *
+     * @param {string} currentCommit current commit id
+     * @returns {Promise<string>}
+     */
+    async calculateMinimumIncrement(currentCommit) {
+        let increment = 'NONE';
+        for(let asset of this.assetDefinitions) {
+            const result = await this.calculateConventionalIncrement(asset.metadata.name, currentCommit);
+            if (result === 'MAJOR') {
+                increment = result;
+                break;
+            }
+            if (result === 'MINOR') {
+                increment = result;
+            }
+
+            if (result === 'PATCH' && increment === 'NONE') {
+                increment = result;
+            }
+        }
+
+        if (increment !== 'NONE') {
+            this._progressListener.info(`Calculated minimum increment from commit messages: ${increment}`);
+        }
+
+        return increment;
+    }
+
+    /**
+     *
      * @param {Reservation} reservation
      * @param {AssetVersion[]} assetVersions
      * @returns {Promise<void>}
@@ -424,19 +482,19 @@ class PushOperation {
         const paths = [
             {
                 type: 'markdown',
-                path: Path.join(this._directory,'README.md'),
+                path: Path.join(this._directory, 'README.md'),
             },
             {
                 type: 'text',
-                path: Path.join(this._directory,'README.txt')
+                path: Path.join(this._directory, 'README.txt')
             },
             {
                 type: 'text',
-                path: Path.join(this._directory,'README')
+                path: Path.join(this._directory, 'README')
             }
         ]
 
-        for(let i = 0; i < paths.length; i++) {
+        for (let i = 0; i < paths.length; i++) {
             const pathInfo = paths[i];
             if (FS.existsSync(pathInfo.path)) {
                 return {
@@ -465,6 +523,18 @@ class PushOperation {
 
         await this._progressListener.progress('Verifying working directory', async () => this.checkWorkingDirectory());
 
+        const commit = vcsHandler ? await this.getCurrentVcsCommit() : null;
+
+        let minimumIncrement = 'NONE';
+        if (vcsHandler && commit) {
+            await this._progressListener.progress(
+                'Calculating conventional commit increment',
+                async () => {
+                    minimumIncrement = await this.calculateMinimumIncrement(commit);
+                }
+            )
+        }
+
         await this.checkDependencies();
 
         await this.runBuild(artifactHandler);
@@ -473,9 +543,8 @@ class PushOperation {
 
         const {branch, main} = vcsHandler ?
             await vcsHandler.getBranch(this._directory)
-            : {main:true, branch: 'master'};
+            : {main: true, branch: 'master'};
 
-        const commit =  vcsHandler ? await this.getCurrentVcsCommit() : null;
         const checksum = await artifactHandler.calculateChecksum();
 
         const reservation = await this._progressListener.progress(
@@ -485,7 +554,8 @@ class PushOperation {
                 mainBranch: main,
                 branchName: branch,
                 commit,
-                checksum
+                checksum,
+                minimumIncrement
             })
         );
 
@@ -541,7 +611,6 @@ class PushOperation {
             let vcsTags = [];
 
             if (vcsHandler) {
-
                 repository = {
                     type: vcsHandler.getType(),
                     details: await vcsHandler.getCheckoutInfo(this._directory),
@@ -553,7 +622,7 @@ class PushOperation {
                 if (main) {
                     this._progressListener.info(`Assigning ${vcsHandler.getName()} commit id to version: ${commitId} > [${reservation.versions.map(v => v.version).join(', ')}]`);
                     if (reservation.versions.length > 1) {
-                        for(let i = 0; i < reservation.versions.length; i++) {
+                        for (let i = 0; i < reservation.versions.length; i++) {
                             const version = reservation.versions[i].version;
                             const assetDefinition = reservation.versions[i].content;
                             //Multiple assets in this repo - use separate tags for each
@@ -565,7 +634,6 @@ class PushOperation {
                     }
                 }
             }
-
 
 
             this._progressListener.info(`Calculated checksum for artifact: ${checksum}`);
@@ -617,7 +685,6 @@ class PushOperation {
                 for (let i = 0; i < reservation.versions.length; i++) {
                     const reservedVersion = reservation.versions[i];
                     const name = reservedVersion.content.metadata.name;
-
 
 
                     /**
