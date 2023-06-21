@@ -66,8 +66,6 @@ module.exports = async function install(progressListener, uris, options) {
                 throw new Error('Artifact type not found: ' + assetVersion.artifact.type);
             }
 
-            progressListener.info(`Pulling artifact using ${handler.getName()}`);
-
             const tmpFolder = Path.join(
                 OS.tmpdir(),
                 'blockctl-asset-install',
@@ -75,33 +73,46 @@ module.exports = async function install(progressListener, uris, options) {
                 assetInfo.name,
                 assetVersion.version
             );
-            if (await FSExtra.pathExists(tmpFolder)) {
-                await FSExtra.remove(tmpFolder);
-            }
 
-            await FSExtra.mkdirp(tmpFolder);
+            await progressListener.progress(
+                `Pulling artifact using ${handler.getName()}`,
+                async () => {
+                    if (await FSExtra.pathExists(tmpFolder)) {
+                        await FSExtra.remove(tmpFolder);
+                    }
 
-            await handler.pull(assetVersion.artifact.details, tmpFolder, registryService);
+                    await FSExtra.mkdirp(tmpFolder);
 
-            await FSExtra.mkdirp(installPath);
+                    await progressListener.progress(
+                        `Downloading...`,
+                        () => handler.pull(assetVersion.artifact.details, tmpFolder, registryService)
+                    );
 
-            await handler.install(tmpFolder, installPath);
+                    await FSExtra.mkdirp(installPath);
 
-            const { baseDir, assetFile, versionFile } = ClusterConfiguration.getRepositoryAssetInfoPath(
-                assetInfo.handle,
-                assetInfo.name,
-                assetVersion.version
+                    await progressListener.progress(
+                        `Installing...`,
+                        () => handler.install(tmpFolder, installPath)
+                    );
+
+                    const { baseDir, assetFile, versionFile } = ClusterConfiguration.getRepositoryAssetInfoPath(
+                        assetInfo.handle,
+                        assetInfo.name,
+                        assetVersion.version
+                    );
+
+                    await FSExtra.mkdirp(baseDir);
+
+                    //Write the asset file - it's usually included in the package but might contain multiple
+                    await FSExtra.writeFile(assetFile, YAML.stringify(assetVersion.content));
+                    progressListener.info(`Wrote asset information to ${assetFile}`);
+
+                    //Write version information to file
+                    await FSExtra.writeFile(versionFile, YAML.stringify(assetVersion));
+                    progressListener.info(`Wrote version information to ${versionFile}`);
+
+                }
             );
-
-            await FSExtra.mkdirp(baseDir);
-
-            //Write the asset file - it's usually included in the package but might contain multiple
-            await FSExtra.writeFile(assetFile, YAML.stringify(assetVersion.content));
-            progressListener.info(`Wrote asset information to ${assetFile}`);
-
-            //Write version information to file
-            await FSExtra.writeFile(versionFile, YAML.stringify(assetVersion));
-            progressListener.info(`Wrote version information to ${versionFile}`);
 
             assetVersion.dependencies.forEach((d) => {
                 allDependencies[d.name] = true;

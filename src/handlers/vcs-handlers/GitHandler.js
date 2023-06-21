@@ -155,6 +155,20 @@ class GitHandler {
         return null;
     }
 
+    /**
+     * Get the latest commit messages since a given commit
+     *
+     * @param directory
+     * @param commitId
+     * @returns {Promise<string[]>}
+     */
+    async getCommitsSince(directory, commitId) {
+        const logs = await Git(directory).log({ from: commitId });
+        return logs.all.map((log) => {
+            return log.message;
+        });
+    }
+
     async getCheckoutInfo(directory) {
         const [remote, branch] = await this.getRemote(directory);
 
