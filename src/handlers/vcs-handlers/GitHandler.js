@@ -163,7 +163,16 @@ class GitHandler {
      * @returns {Promise<string[]>}
      */
     async getCommitsSince(directory, commitId) {
-        const logs = await Git(directory).log({ from: commitId });
+        const git = Git(directory);
+        let logs;
+        try {
+            logs = await git.log({ from: commitId });
+        } catch (e) {
+            // This might happen for a force push or and invalid commit id
+            // Just get the latest (current) commit instead
+            logs = await git.log({ n: 1 });
+        }
+
         return logs.all.map((log) => {
             return log.message;
         });

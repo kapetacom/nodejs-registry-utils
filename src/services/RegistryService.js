@@ -103,11 +103,11 @@ class RegistryService {
      * @param {string} name - Full name of the asset (handle/name)
      * @returns {Promise<AssetVersion>}
      */
-    async getCurrentVersion(name) {
+    async getLatestVersion(name) {
         const uri = parseKapetaUri(name);
         return this._request(
             'GET',
-            `/${encodeURIComponent(uri.handle)}/${encodeURIComponent(uri.name)}/current`
+            `/${encodeURIComponent(uri.handle)}/${encodeURIComponent(uri.name)}/latest`
         );
     }
 

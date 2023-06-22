@@ -189,8 +189,8 @@ class PushOperation {
      * @param {string} name
      * @returns {Promise<AssetVersion>}
      */
-    async getCurrentVersion(name) {
-        return this._registryService.getCurrentVersion(name);
+    async getLatestVersion(name) {
+        return this._registryService.getLatestVersion(name);
     }
 
     _hasScript(file) {
@@ -395,7 +395,7 @@ class PushOperation {
      */
     async calculateConventionalIncrement(assetName) {
         const handler = await this.vcsHandler();
-        const latestVersion = await this.getCurrentVersion(assetName);
+        const latestVersion = await this.getLatestVersion(assetName);
 
         if (!latestVersion?.repository?.commit) {
             //Latest version didn't exist or didn't have a commit. We can't calculate increment
