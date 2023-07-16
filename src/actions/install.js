@@ -43,7 +43,9 @@ module.exports = async function install(progressListener, uris, options) {
                 throw new Error('Registration is missing artifact information: ' + uri);
             }
 
-            const { baseDir: installPath, versionFile: installVersion } =
+            const installPath = ClusterConfiguration.getRepositoryAssetPath(assetInfo.handle, assetInfo.name, assetVersion.version);
+
+            const { versionFile: installVersion } =
                 ClusterConfiguration.getRepositoryAssetInfoPath(assetInfo.handle, assetInfo.name, assetVersion.version);
 
             attemptedToInstall[`${assetInfo.handle}/${assetInfo.name}:${assetVersion.version}`] = true;
@@ -91,7 +93,7 @@ module.exports = async function install(progressListener, uris, options) {
                     await FSExtra.mkdirp(installPath);
 
                     await progressListener.progress(
-                        `Installing...`,
+                        `Installing in ${installPath}...`,
                         () => handler.install(tmpFolder, installPath)
                     );
 
