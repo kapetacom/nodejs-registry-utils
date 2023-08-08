@@ -1,45 +1,10 @@
-const { spawn } = require('child_process');
+const { spawn } = require('@kapeta/nodejs-process');
 const Util = require('util');
 
 const _ = require('lodash');
 const blessed = require('blessed');
 
 const OverviewEntry = require('./cli/OverviewEntry.js');
-
-/**
- *
- * @param {ChildProcess} child
- * @param {DataHandler} [dataHandler]
- * @returns {Promise<{exit:number, signal:number, output:string}>}
- */
-const promisifyChild = (child, dataHandler) =>
-    new Promise((resolve, reject) => {
-        const chunks = [];
-        child.stdout.on('data', (data) => {
-            chunks.push(data);
-            data.toString()
-                .trim()
-                .split(/\n/g)
-                .forEach((line) => {
-                    dataHandler && dataHandler({ type: 'stdout', line });
-                });
-        });
-
-        child.stderr.on('data', (data) => {
-            data.toString()
-                .trim()
-                .split(/\n/g)
-                .forEach((line) => {
-                    dataHandler && dataHandler({ type: 'stderr', line });
-                });
-        });
-
-        child.on('exit', (exit, signal) => {
-            resolve({ exit, signal, output: Buffer.concat(chunks).toString() });
-        });
-
-        child.on('error', reject);
-    });
 
 function checkMark(ok) {
     return ok ? '✓' : '✖';
@@ -83,15 +48,11 @@ class CLIHandler {
             stdio: ['ignore', 'pipe', 'pipe'],
         });
 
-        const result = await promisifyChild(child, (data) => {
+        child.onData((data) => {
             this.debug(data.line);
-        });
+        })
 
-        if (result.exit !== 0) {
-            throw new Error('Script failed');
-        }
-
-        return result;
+        await child.wait();
     }
 
     start(title) {
