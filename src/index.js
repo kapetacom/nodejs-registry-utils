@@ -8,7 +8,6 @@ module.exports = {
     RegistryService: require('./services/RegistryService'),
     DockerService: require('./services/DockerService'),
 
-    CLIHandler: require('./handlers/CLIHandler'),
     ArtifactHandler: require('./handlers/ArtifactHandler'),
     VCSHandler: require('./handlers/VCSHandler'),
 
