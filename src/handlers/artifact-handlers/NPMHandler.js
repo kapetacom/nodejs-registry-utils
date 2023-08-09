@@ -204,7 +204,7 @@ class NPMHandler {
 
         process.env.NODE_ENV = 'production';
         //Install npm dependencies
-        await this._progressListener.run('npm install', targetPath);
+        await this._progressListener.run('npm install --omit dev', targetPath);
     }
 
     _getPackageInfo() {
