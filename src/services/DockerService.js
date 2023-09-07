@@ -105,7 +105,7 @@ class DockerService {
      * @returns {Promise<string>}
      */
     async build(directory, imageTags) {
-        await this._progressListener.run(`docker build ${imageTags.map(tag => `-t ${tag}`)} .`, directory);
+        await this._progressListener.run(`docker buildx build --platform linux/amd64 ${imageTags.map(tag => `-t ${tag}`)} .`, directory);
     }
 
     /**
