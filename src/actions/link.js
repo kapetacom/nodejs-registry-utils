@@ -16,7 +16,7 @@ function makeSymLink(directory, versionTarget) {
         }
     } catch(e) {};
     FSExtra.mkdirpSync(Path.dirname(versionTarget));
-    FSExtra.createSymlinkSync(directory, versionTarget);
+    FSExtra.createSymlinkSync(directory, versionTarget, 'junction');
 }
 
 /**
