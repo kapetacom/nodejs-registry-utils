@@ -36,6 +36,10 @@ module.exports = function link(progressListener, source) {
     const assetInfos = YAML.parseAllDocuments(FS.readFileSync(kapetaYmlFilePath).toString())
         .map(doc => doc.toJSON());
 
+    if (assetInfos.length === 0) {
+        throw new Error(`Failed to link asset, ${kapetaYmlFilePath} does not contain any assets`);
+    }
+
     //If there are multiple assets in the kapeta.yml - we still just create 1 symlink since both will
     //otherwise be loaded twice
     const assetInfo = assetInfos[0];
