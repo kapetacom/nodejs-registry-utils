@@ -1,3 +1,8 @@
+/**
+ * Copyright 2023 Kapeta Inc.
+ * SPDX-License-Identifier: MIT
+ */
+
 const DockerHandler = require('./artifact-handlers/DockerHandler');
 const NPMHandler = require('./artifact-handlers/NPMHandler');
 const MavenHandler = require('./artifact-handlers/MavenHandler');

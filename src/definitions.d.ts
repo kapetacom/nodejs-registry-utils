@@ -1,3 +1,8 @@
+/**
+ * Copyright 2023 Kapeta Inc.
+ * SPDX-License-Identifier: MIT
+ */
+
 declare interface ProgressListener {
     progress: <T>(title: string, callback:() => Promise<T>) => Promise<T>;
     run: (cmd: string, cwd: string) => Promise<any>;

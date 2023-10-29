@@ -1,3 +1,8 @@
+/**
+ * Copyright 2023 Kapeta Inc.
+ * SPDX-License-Identifier: MIT
+ */
+
 const FS = require('node:fs');
 const {parseKapetaUri} = require('@kapeta/nodejs-utils');
 

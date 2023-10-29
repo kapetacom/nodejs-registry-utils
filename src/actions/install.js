@@ -1,3 +1,8 @@
+/**
+ * Copyright 2023 Kapeta Inc.
+ * SPDX-License-Identifier: MIT
+ */
+
 const Path = require('node:path');
 const OS = require('node:os');
 const FS = require('node:fs');
