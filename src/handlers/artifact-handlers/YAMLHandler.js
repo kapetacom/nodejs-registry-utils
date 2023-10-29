@@ -1,3 +1,8 @@
+/**
+ * Copyright 2023 Kapeta Inc.
+ * SPDX-License-Identifier: MIT
+ */
+
 const FS = require('fs');
 const Path = require('path');
 const YAML = require('yaml');

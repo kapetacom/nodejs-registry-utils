@@ -1,3 +1,8 @@
+/**
+ * Copyright 2023 Kapeta Inc.
+ * SPDX-License-Identifier: MIT
+ */
+
 const _ = require('lodash');
 const {parseCommit, validateCommit, applyPlugins, mappers}  = require('parse-commit-message');
 

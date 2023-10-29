@@ -1,3 +1,8 @@
+/**
+ * Copyright 2023 Kapeta Inc.
+ * SPDX-License-Identifier: MIT
+ */
+
 const DockerfileParser = require('docker-file-parser');
 const FS = require('fs');
 const Path = require('path');

@@ -1,3 +1,8 @@
+/**
+ * Copyright 2023 Kapeta Inc.
+ * SPDX-License-Identifier: MIT
+ */
+
 const request = require('request-promise-native');
 const { KapetaAPI } = require('@kapeta/nodejs-api-client');
 const {parseKapetaUri} = require("@kapeta/nodejs-utils");
@@ -152,6 +157,12 @@ class RegistryService {
             }
 
             throw e;
+        }
+    }
+}
+
+module.exports = RegistryService;
+         throw e;
         }
     }
 }

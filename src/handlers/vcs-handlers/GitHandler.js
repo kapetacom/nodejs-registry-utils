@@ -1,3 +1,8 @@
+/**
+ * Copyright 2023 Kapeta Inc.
+ * SPDX-License-Identifier: MIT
+ */
+
 const Git = require('simple-git');
 const _ = require('lodash');
 const Path = require('path');
