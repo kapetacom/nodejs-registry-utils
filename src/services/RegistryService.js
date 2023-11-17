@@ -162,9 +162,3 @@ class RegistryService {
 }
 
 module.exports = RegistryService;
-         throw e;
-        }
-    }
-}
-
-module.exports = RegistryService;

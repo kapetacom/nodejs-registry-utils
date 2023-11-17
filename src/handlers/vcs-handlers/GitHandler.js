@@ -144,9 +144,11 @@ class GitHandler {
             );
         }
 
+        const kapetaReleaseBranch = process.env.KAPETA_RELEASE_BRANCH;
+
         return {
             branch,
-            main: defaultBranch === branch,
+            main: defaultBranch === branch || kapetaReleaseBranch === branch,
         };
     }
 
