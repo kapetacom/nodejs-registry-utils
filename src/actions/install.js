@@ -88,27 +88,24 @@ module.exports = async function install(progressListener, uris, options) {
                         await FSExtra.remove(tmpFolder);
                     }
 
-                    await FSExtra.mkdirp(tmpFolder);
+                    const tmpInstallFolder = Path.join(tmpFolder,'install');
+                    await FSExtra.mkdirp(tmpInstallFolder);
 
                     await progressListener.progress(
                         `Downloading...`,
                         () => handler.pull(assetVersion.artifact.details, tmpFolder, registryService)
                     );
 
-                    await FSExtra.mkdirp(installPath);
-
                     await progressListener.progress(
-                        `Installing in ${installPath}...`,
-                        () => handler.install(tmpFolder, installPath)
+                        `Installing in ${tmpInstallFolder}...`,
+                        () => handler.install(tmpFolder, tmpInstallFolder)
                     );
 
-                    const { baseDir, assetFile, versionFile } = ClusterConfiguration.getRepositoryAssetInfoPath(
-                        assetInfo.handle,
-                        assetInfo.name,
-                        assetVersion.version
-                    );
+                    const { assetFile, versionFile } = ClusterConfiguration.getRepositoryAssetInfoRelativePath(tmpInstallFolder);
 
-                    await FSExtra.mkdirp(baseDir);
+                    const versionFolder = Path.dirname(versionFile);
+                    progressListener.info(`Ensuring version folder: ${versionFolder}`);
+                    await FSExtra.mkdirp(versionFolder);
 
                     //Write the asset file - it's usually included in the package but might contain multiple
                     await FSExtra.writeFile(assetFile, YAML.stringify(assetVersion.content));
@@ -118,6 +115,15 @@ module.exports = async function install(progressListener, uris, options) {
                     await FSExtra.writeFile(versionFile, YAML.stringify(assetVersion));
                     progressListener.info(`Wrote version information to ${versionFile}`);
 
+                    const installPathParent = Path.dirname(installPath);
+                    progressListener.info(`Ensuring target parent folder: ${installPathParent}`);
+                    await FSExtra.mkdirp(installPathParent);
+                    await FSExtra.remove(installPath);
+
+                    progressListener.info(`Moving ${tmpInstallFolder} to ${installPath}`);
+                    await FSExtra.rename(tmpInstallFolder, installPath);
+
+                    progressListener.info(`Moved ${tmpInstallFolder} to ${installPath}`);
                 }
             );
 

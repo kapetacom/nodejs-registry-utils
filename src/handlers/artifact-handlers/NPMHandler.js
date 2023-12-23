@@ -199,16 +199,24 @@ class NPMHandler {
         await FSExtra.mkdirp(targetPath);
 
         const absolutePath = Path.join(sourcePath, tarFiles[0]);
-
+        await this._progressListener.info(`Extracting tar file: ${absolutePath} to ${targetPath}`);
         await tar.extract({
             file: absolutePath,
             cwd: targetPath,
             strip: 1 //Needed since we've got a random root directory we want to ignore
         });
 
+        await this._progressListener.info(`Tar file extracted`);
+
         process.env.NODE_ENV = 'production';
-        //Install npm dependencies
-        await this._progressListener.run('npm install --omit dev', targetPath);
+
+        const packageJsonRaw = await FSExtra.readFile(Path.join(targetPath, 'package.json'));
+        const packageJson = JSON.parse(packageJsonRaw.toString());
+
+        if (packageJson.bundledDependencies !== true) {
+            //Install npm dependencies if they're not bundled
+            await this._progressListener.run('npm install --omit=dev', targetPath);
+        }
     }
 
     _getPackageInfo() {
