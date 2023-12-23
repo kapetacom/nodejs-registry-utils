@@ -42,8 +42,8 @@
     "request": "^2.88.2",
     "request-promise-native": "^1.0.8",
     "simple-git": "^3.18.0",
-    "tar": "^6.1.13",
-    "tar-fs": "^2.1.1",
+    "tar": "^6.2.0",
+    "tar-fs": "^3.0.4",
     "xml-js": "^1.6.11",
     "yaml": "^2.2.2",
     "zlib": "^1.0.5"
