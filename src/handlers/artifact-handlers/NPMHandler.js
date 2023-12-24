@@ -213,7 +213,7 @@ class NPMHandler {
         const packageJsonRaw = await FSExtra.readFile(Path.join(targetPath, 'package.json'));
         const packageJson = JSON.parse(packageJsonRaw.toString());
 
-        if (packageJson.bundledDependencies !== true) {
+        if (!packageJson.bundledDependencies && !packageJson.bundleDependencies) {
             //Install npm dependencies if they're not bundled
             await this._progressListener.run('npm install --omit=dev', targetPath);
         }
