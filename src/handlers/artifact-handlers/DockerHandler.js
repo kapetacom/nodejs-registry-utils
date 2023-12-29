@@ -7,10 +7,10 @@ const FS = require('node:fs');
 const Path = require('node:path');
 const URL = require('node:url');
 const DockerService = require("../../services/DockerService");
-const {parseVersion} = require("../../utils/version-utils");
+const {versionFormatter} = require("../../utils/version-utils");
 const FSExtra = require("fs-extra");
 const Config = require("../../config");
-const {KapetaAPI} = require("@kapeta/nodejs-api-client");
+
 /**
  * @class
  * @implements {ArtifactHandler}
@@ -127,7 +127,7 @@ class DockerHandler {
             prefix = '';
         }
 
-        const versionInfo = parseVersion(version);
+        const versionInfo = versionFormatter(version);
 0
         return [
             `${prefix}${versionInfo.toFullVersion()}`,

@@ -4,60 +4,55 @@
  */
 
 const _ = require('lodash');
-const {parseCommit, validateCommit, applyPlugins, mappers}  = require('parse-commit-message');
+const {parseVersion} = require("@kapeta/nodejs-utils");
+const CommitParser = require('conventional-commits-parser');
 
-exports.parseVersion = function parseVersion(version) {
-    let [major, minor, patch] = version.split(/\./g);
-    let preRelease = null;
-    const preReleaseIx = patch.indexOf('-');
-    if (preReleaseIx > -1) {
-        preRelease = patch.substring(preReleaseIx + 1);
-        patch = patch.substring(0, preReleaseIx);
+const CommitParserOptions = {
+    headerPattern: /^(\w*)(?:\((.*)\))?!?: (.*)$/,
+    breakingHeaderPattern: /^(\w*)(?:\((.*)\))?!: (.*)$/,
+    headerCorrespondence: [
+        'type',
+        'scope',
+        'subject'
+    ],
+    noteKeywords: ['BREAKING CHANGE', 'BREAKING-CHANGE'],
+    revertPattern: /^(?:Revert|revert:)\s"?([\s\S]+?)"?\s*This reverts commit (\w*)\./i,
+    revertCorrespondence: ['header', 'hash'],
+    issuePrefixes: ['#']
+}
+
+
+
+exports.versionFormatter = function versionFormatter(version) {
+    const v = parseVersion(version)
+
+    function maybeAppendPreRelease(out) {
+        if (v.preRelease) {
+            out += '-' + v.preRelease;
+            if (v.preReleaseIteration) {
+                out += '.' + v.preReleaseIteration;
+            }
+        }
+
+        if (v.build) {
+            out += '+' + v.build;
+            if (v.buildIteration) {
+                out += '.' + v.buildIteration;
+            }
+        }
+        return out;
     }
 
     return {
-        major: parseInt(major),
-        minor: parseInt(minor),
-        patch: parseInt(patch),
-        preRelease,
-        /**
-         *
-         * @param {VersionInfo} other
-         */
-        compare(other) {
-            if (this.major !== other.major) {
-                return this.major - other.major;
-            }
-
-            if (this.minor !== other.minor) {
-                return this.minor - other.minor;
-            }
-
-            return this.patch - other.patch;
-        },
+        version: v,
         toMajorVersion() {
-            let out = `${this.major}`;
-
-            if (this.preRelease) {
-                out += '-' + this.preRelease;
-            }
-            return out;
+            return maybeAppendPreRelease(`${v.major}`);
         },
         toMinorVersion() {
-            let out = `${this.major}.${this.minor}`;
-
-            if (this.preRelease) {
-                out += '-' + this.preRelease;
-            }
-            return out;
+            return maybeAppendPreRelease(`${v.major}.${v.minor}`);
         },
         toFullVersion() {
-            let out = `${this.major}.${this.minor}.${this.patch}`;
-
-            if (this.preRelease) {
-                out += '-' + this.preRelease;
-            }
-            return out;
+            return maybeAppendPreRelease(`${v.major}.${v.minor}.${v.patch}`);
         },
         toString() {
             return this.toFullVersion();
@@ -78,31 +73,51 @@ exports.calculateVersionIncrement = function calculateVersionIncrement(gitLogs) 
     if (!gitLogs || gitLogs.length === 0) {
         return 'NONE';
     }
-    const result = gitLogs.map((log) => {
+    const commits = gitLogs.map((log) => {
         try {
-            return parseCommit(log)
+            return CommitParser.sync(log, CommitParserOptions)
         } catch (e) {
+            console.log('Failed to parse commit: ', e);
             return null;
         }
     }).filter((commit) => {
-        if (!commit) {
-            return false;
-        }
-
-        return validateCommit(commit, true);
+        return commit.type;
     });
-    const commits = applyPlugins([mappers.increment], result);
-    let increment = 'patch';
+
+    let increment = 0;
     for (const commit of commits) {
-        if (commit.isBreaking) {
-            increment = 'major';
-            break;
+        switch (commit.type.toLowerCase()) {
+            case 'feat':
+                if (increment < 2) {
+                    increment = 2;
+                }
+                break;
+            case 'fix':
+                if (increment < 1) {
+                    increment = 1;
+                }
+                break;
         }
 
-        if (commit.increment === 'minor') {
-            increment = 'minor';
+        const isBreaking = commit.notes &&
+                                    commit.notes.length > 0 &&
+                                    commit.notes
+                                        .some((note) => CommitParserOptions.noteKeywords.includes(note.title.toUpperCase()));
+
+        if (isBreaking) {
+            increment = 3;
+            break;
         }
     }
 
-    return increment.toUpperCase();
+    switch (increment) {
+        case 3:
+            return 'MAJOR';
+        case 2:
+            return 'MINOR';
+        case 1:
+            return 'PATCH';
+    }
+
+    return 'PATCH';
 }
