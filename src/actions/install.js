@@ -88,17 +88,19 @@ module.exports = async function install(progressListener, uris, options) {
                         await FSExtra.remove(tmpFolder);
                     }
 
-                    const tmpInstallFolder = Path.join(tmpFolder,'install');
+                    const tmpSourceFolder = Path.join(tmpFolder, 'source');
+                    const tmpInstallFolder = Path.join(tmpFolder, 'install');
+                    await FSExtra.mkdirp(tmpSourceFolder);
                     await FSExtra.mkdirp(tmpInstallFolder);
 
                     await progressListener.progress(
                         `Downloading...`,
-                        () => handler.pull(assetVersion.artifact.details, tmpFolder, registryService)
+                        () => handler.pull(assetVersion.artifact.details, tmpSourceFolder, registryService)
                     );
 
                     await progressListener.progress(
                         `Installing in ${tmpInstallFolder}...`,
-                        () => handler.install(tmpFolder, tmpInstallFolder)
+                        () => handler.install(tmpSourceFolder, tmpInstallFolder)
                     );
 
                     const { assetFile, versionFile } = ClusterConfiguration.getRepositoryAssetInfoRelativePath(tmpInstallFolder);
