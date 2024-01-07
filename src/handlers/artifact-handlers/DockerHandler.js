@@ -76,15 +76,9 @@ class DockerHandler {
      * @returns {Promise<Artifact<DockerDetails>>}
      */
     async push( name, version, commitId) {
-        //Create artifact
-
-        await this._progressListener.progress(`Building docker image for ${name}:${version}`, async () => this.buildDockerImage(name));
-
         const dockerTags = this._getDockerTags(name, version, commitId);
 
-        await this._progressListener.progress('Tagging docker image', async () => this.tagDockerImage(name, dockerTags));
-
-        await this._progressListener.progress('Pushing docker image', async () => await this._dockerService.push(dockerTags));
+        await this._progressListener.progress(`Building docker image for ${name}:${version}`, async () => this.buildDockerImage(name, dockerTags));
 
         return {
             type: DockerHandler.getType(),
@@ -165,14 +159,13 @@ class DockerHandler {
     /**
      *
      * @param {string} name
+     * @param {string[]} tags
      * @returns {Promise<string>} returns image name
      */
-    async buildDockerImage(name) {
+    async buildDockerImage(name, tags) {
         const dockerImageName = this._getLocalBuildName(name);
         await this._progressListener.progress(`Building local docker image: ${dockerImageName}`, async () => {
-            return this._dockerService.build(this._directory, [
-                dockerImageName
-            ]);
+            return this._dockerService.build(this._directory, tags);
         });
 
         return dockerImageName
