@@ -121,7 +121,7 @@ class DockerService {
             // Ignore
         }
 
-        await this._progressListener.run(`docker buildx build --platform ${platforms.join(',')} ${imageTags.map(tag => `-t ${tag}`)} --push .`, directory);
+        await this._progressListener.run(`docker buildx build --platform ${platforms.join(',')} ${imageTags.map(tag => `-t ${tag}`).join(' ')} --push .`, directory);
     }
 
     /**
