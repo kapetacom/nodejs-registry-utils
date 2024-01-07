@@ -110,7 +110,18 @@ class DockerService {
      * @returns {Promise<string>}
      */
     async build(directory, imageTags) {
-        await this._progressListener.run(`docker buildx build --platform linux/amd64 ${imageTags.map(tag => `-t ${tag}`)} .`, directory);
+        const platforms = ['linux/amd64'];
+        try {
+            const {output} = await this._progressListener.run(`docker buildx inspect`, directory);
+            if (typeof output === 'string' && output.includes('linux/arm64')) {
+                //If we've got linux/arm64 - add that to the list of platforms
+                platforms.push('linux/arm64');
+            }
+        } catch (e) {
+            // Ignore
+        }
+
+        await this._progressListener.run(`docker buildx build --platform ${platforms.join(',')} ${imageTags.map(tag => `-t ${tag}`)} .`, directory);
     }
 
     /**
