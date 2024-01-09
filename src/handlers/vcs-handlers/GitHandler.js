@@ -175,6 +175,8 @@ class GitHandler {
         try {
             logs = await git.log({ from: commitId });
         } catch (e) {
+            console.warn(`Failed to get logs from git from commit: ${commitId}`, e);
+            console.warn('Getting latest commit instead');
             // This might happen for a force push or and invalid commit id
             // Just get the latest (current) commit instead
             logs = await git.log({ n: 1 });
