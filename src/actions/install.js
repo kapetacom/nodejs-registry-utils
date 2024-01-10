@@ -123,8 +123,7 @@ module.exports = async function install(progressListener, uris, options) {
                     await FSExtra.remove(installPath);
 
                     progressListener.info(`Moving ${tmpInstallFolder} to ${installPath}`);
-                    await FSExtra.rename(tmpInstallFolder, installPath);
-
+                    await FSExtra.move(tmpInstallFolder, installPath);
                     progressListener.info(`Moved ${tmpInstallFolder} to ${installPath}`);
                 }
             );
