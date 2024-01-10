@@ -1,6 +1,6 @@
 {
   "name": "@kapeta/nodejs-registry-utils",
-  "version": "0.0.6",
+  "version": "0.0.7",
   "description": "NodeJS utilities for interacting with the Kapeta registry",
   "main": "src/index.js",
   "license": "MIT",
