@@ -660,6 +660,7 @@ class PushOperation {
                     const assetVersion = {
                         version: reservedVersion.version,
                         content: reservedVersion.content,
+                        current: true, // When creating a new version, it's always the new current version
                         checksum,
                         readme,
                         repository,
@@ -669,7 +670,10 @@ class PushOperation {
                     assetVersions.push(assetVersion);
                 }
 
-                await this._progressListener.progress(`Committing versions: ${assetVersions.map(av => av.version)}`, async () => this.commitReservation(reservation, assetVersions));
+                await this._progressListener.progress(
+                    `Committing versions: ${assetVersions.map(av => av.version)}`,
+                    async () => this.commitReservation(reservation, assetVersions)
+                );
 
                 if (vcsHandler && vcsTags.length > 0) {
                     try {

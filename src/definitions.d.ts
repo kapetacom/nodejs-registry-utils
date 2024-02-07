@@ -206,6 +206,7 @@ interface AssetVersion<T extends any = any, U extends any = any> {
     content: AssetDefinition
     checksum?: string
     dependencies: { name:string }[]
+    current?: boolean
 }
 
 interface AssetDefinition {
