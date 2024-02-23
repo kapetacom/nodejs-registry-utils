@@ -7,21 +7,20 @@ const Path = require('path');
 const FS = require('fs');
 const YAML = require('yaml');
 
-const RegistryService = require("../services/RegistryService");
-const ArtifactHandler = require("../handlers/ArtifactHandler");
-const VCSHandler = require("../handlers/VCSHandler");
-const Config = require("../config");
+const RegistryService = require('../services/RegistryService');
+const ArtifactHandler = require('../handlers/ArtifactHandler');
+const VCSHandler = require('../handlers/VCSHandler');
+const Config = require('../config');
 
-const {parseKapetaUri} = require('@kapeta/nodejs-utils');
+const { parseKapetaUri } = require('@kapeta/nodejs-utils');
 const ClusterConfiguration = require('@kapeta/local-cluster-config').default;
-const glob = require("glob");
-const {KapetaAPI} = require("@kapeta/nodejs-api-client");
-const {calculateVersionIncrement} = require("../utils/version-utils");
+const glob = require('glob');
+const { KapetaAPI } = require('@kapeta/nodejs-api-client');
+const { calculateVersionIncrement } = require('../utils/version-utils');
 
 const LOCAL_VERSION_MAPPING_CACHE = {};
 
 class PushOperation {
-
     /**
      *
      * @param {ProgressListener} progressListener
@@ -29,7 +28,6 @@ class PushOperation {
      * @param {PushCommandOptions} options
      */
     constructor(progressListener, directory, options) {
-
         /**
          *
          * @type {ProgressListener}
@@ -37,15 +35,17 @@ class PushOperation {
          */
         this._progressListener = progressListener;
 
-        this._registryService = new RegistryService(
-            Config.data.registry.url,
-            Config.data.registry.organisationId
-        );
+        this._registryService = new RegistryService(Config.data.registry.url, Config.data.registry.organisationId);
 
         /**
          * @type {string}
          */
         this.file = Path.resolve(process.cwd(), directory, 'kapeta.yml');
+
+        /**
+         * @type {string|null}
+         */
+        this._assetKind = null;
 
         /**
          *
@@ -113,10 +113,17 @@ class PushOperation {
         if (this._artifactHandler === false) {
             const api = new KapetaAPI();
             const accessToken = await api.getAccessToken();
-            this._artifactHandler = await ArtifactHandler.getArtifactHandler(this._progressListener, this._directory, accessToken);
+            this._artifactHandler = await ArtifactHandler.getArtifactHandler(
+                this._progressListener,
+                this._assetKind,
+                this._directory,
+                accessToken,
+            );
             if (this._artifactHandler) {
                 this._progressListener.showValue(`Identified artifact type`, this._artifactHandler.getName());
-                await this._progressListener.progress('Verifying artifact type handler', () => this._artifactHandler.verify());
+                await this._progressListener.progress('Verifying artifact type handler', () =>
+                    this._artifactHandler.verify(),
+                );
             } else {
                 await this._progressListener.check(`Identified artifact type`, false);
             }
@@ -130,48 +137,58 @@ class PushOperation {
 
         const blockYml = Path.basename(this.file);
 
-        if (!await this._progressListener.check(blockYml + ' exists', FS.existsSync(this.file))) {
+        if (!(await this._progressListener.check(blockYml + ' exists', FS.existsSync(this.file)))) {
             throw new Error(`${this.file} was not found`);
         }
 
         const fileStat = FS.statSync(this.file);
 
-        if (!await this._progressListener.check(blockYml + ' is file', fileStat.isFile())) {
+        if (!(await this._progressListener.check(blockYml + ' is file', fileStat.isFile()))) {
             throw new Error(`${this.file} is not a file. A valid file must be specified`);
         }
 
         const content = FS.readFileSync(this.file).toString();
 
-        this.assetDefinitions = YAML.parseAllDocuments(content).map(doc => doc.toJSON());
+        this.assetDefinitions = YAML.parseAllDocuments(content).map((doc) => doc.toJSON());
 
-        this.assetDefinitions.forEach(assetDefinition => {
+        this.assetDefinitions.forEach((assetDefinition) => {
             if (!assetDefinition.metadata) {
                 throw new Error(`${this.file} is missing metadata. A valid block definition file must be specified`);
             }
 
             if (!assetDefinition.metadata.name) {
-                throw new Error(`${this.file} is missing metadata.name. A valid block definition file must be specified`);
+                throw new Error(
+                    `${this.file} is missing metadata.name. A valid block definition file must be specified`,
+                );
             }
-        })
+        });
 
+        // We only support 1 asset per file for now
+        this._assetKind = this.assetDefinitions[0].kind;
     }
 
     async checkWorkingDirectory() {
         const handler = await this.vcsHandler();
         if (handler) {
             if (!this.options.ignoreWorkingDirectory) {
-
                 await this._progressListener.progress('Checking that working directory is clean', async () => {
                     if (!(await handler.isWorkingDirectoryClean(this._directory))) {
-                        throw new Error('Working directory is not clean. Make sure everything is committed or use --ignore-working-directory to ignore')
+                        throw new Error(
+                            'Working directory is not clean. Make sure everything is committed or use --ignore-working-directory to ignore',
+                        );
                     }
                 });
 
-                await this._progressListener.progress('Checking that working directory is up to date with remote', async () => {
-                    if (!(await handler.isWorkingDirectoryUpToDate(this._directory))) {
-                        throw new Error('Working directory is not up to date with remote. Pull the latest changes or use --ignore-working-directory to continue.')
-                    }
-                });
+                await this._progressListener.progress(
+                    'Checking that working directory is up to date with remote',
+                    async () => {
+                        if (!(await handler.isWorkingDirectoryUpToDate(this._directory))) {
+                            throw new Error(
+                                'Working directory is not up to date with remote. Pull the latest changes or use --ignore-working-directory to continue.',
+                            );
+                        }
+                    },
+                );
             }
         }
     }
@@ -224,7 +241,7 @@ class PushOperation {
      */
     async runTests(artifactHandler) {
         if (this.options.skipTests) {
-            this._progressListener.info("Skipping tests...");
+            this._progressListener.info('Skipping tests...');
             return;
         }
 
@@ -243,18 +260,35 @@ class PushOperation {
 
     findAssetsInPath() {
         const baseDir = Path.dirname(this.file);
-        const assetFiles = glob.sync('*/**/kapeta.yml', {cwd: baseDir});
+        const assetFiles = glob.sync('*/**/kapeta.yml', { cwd: baseDir });
         const localAssets = {};
         for (let assetFile of assetFiles) {
             const fullPath = Path.join(baseDir, assetFile);
             const yamlData = FS.readFileSync(fullPath).toString();
-            const assets = YAML.parseAllDocuments(yamlData).map(doc => doc.toJSON());
-            assets.forEach(asset => {
+            const assets = YAML.parseAllDocuments(yamlData).map((doc) => doc.toJSON());
+            assets.forEach((asset) => {
                 localAssets[asset.metadata.name] = Path.dirname(fullPath);
             });
         }
 
         return localAssets;
+    }
+
+    async checkAssetKindOfKind() {
+        if (this._assetKind.startsWith('core/')) {
+            return;
+        }
+
+        const uri = parseKapetaUri(this._assetKind);
+
+        if (!uri.fullName || !uri.version) {
+            throw new Error('Invalid asset kind: ' + this._assetKind + ' expected format: handle/name:version');
+        }
+
+        const asset = await this._registryService.getVersion(uri.fullName, uri.version);
+
+        // We now know the "kind of the kind"
+        this._assetKind = asset.content.kind;
     }
 
     async checkDependencies() {
@@ -270,7 +304,6 @@ class PushOperation {
             this.assetDefinitions = newAssets;
         });
     }
-
 
     /**
      *
@@ -297,19 +330,22 @@ class PushOperation {
                 //Mapping already found
                 dependencyChanges.push({
                     from: dependency.name,
-                    to: LOCAL_VERSION_MAPPING_CACHE[dependency.name]
+                    to: LOCAL_VERSION_MAPPING_CACHE[dependency.name],
                 });
                 continue;
             }
 
-            const key = `${dependencyUri.handle}/${dependencyUri.name}`
+            const key = `${dependencyUri.handle}/${dependencyUri.name}`;
             let assetLocalPath;
             if (localAssets[key]) {
                 assetLocalPath = localAssets[key];
                 this._progressListener.info(`Resolved local version for ${key} from path: ${assetLocalPath}`);
             } else {
-                const localPath = ClusterConfiguration
-                    .getRepositoryAssetPath(dependencyUri.handle, dependencyUri.name, dependencyUri.version);
+                const localPath = ClusterConfiguration.getRepositoryAssetPath(
+                    dependencyUri.handle,
+                    dependencyUri.name,
+                    dependencyUri.version,
+                );
 
                 if (!FS.existsSync(localPath)) {
                     throw new Error('Path for local dependency not found: ' + localPath);
@@ -321,9 +357,10 @@ class PushOperation {
                     throw new Error('Resolved path for local dependency not found: ' + localPath);
                 }
 
-                this._progressListener.info(`Resolved local version for ${key} from local repository: ${assetLocalPath}`);
+                this._progressListener.info(
+                    `Resolved local version for ${key} from local repository: ${assetLocalPath}`,
+                );
             }
-
 
             //Local dependency - we need to push that first and
             //replace version with pushed version - but only "in-flight"
@@ -332,19 +369,24 @@ class PushOperation {
             await this._progressListener.progress(`Pushing local version for ${key}`, async () => {
                 const dependencyOperation = new PushOperation(this._progressListener, assetLocalPath, this.options);
 
-                const {references} = await dependencyOperation.perform();
+                const { references } = await dependencyOperation.perform();
 
-                if (references &&
-                    references.length > 0) {
+                if (references && references.length > 0) {
                     for (let reference of references) {
                         const referenceUri = parseKapetaUri(reference);
-                        if (referenceUri.handle === dependencyUri.handle &&
+                        if (
+                            referenceUri.handle === dependencyUri.handle &&
                             referenceUri.name === dependencyUri.name &&
-                            referenceUri.version !== 'local') {
-                            this._progressListener.info('Resolved version for local dependency: %s > %s', dependency.name, referenceUri.version);
+                            referenceUri.version !== 'local'
+                        ) {
+                            this._progressListener.info(
+                                'Resolved version for local dependency: %s > %s',
+                                dependency.name,
+                                referenceUri.version,
+                            );
                             dependencyChanges.push({
                                 from: dependency.name,
-                                to: reference
+                                to: reference,
                             });
                         }
                     }
@@ -353,7 +395,7 @@ class PushOperation {
         }
 
         if (dependencyChanges.length > 0) {
-            dependencyChanges.forEach(ref => {
+            dependencyChanges.forEach((ref) => {
                 //Cache mappings for other push operations and assets
                 LOCAL_VERSION_MAPPING_CACHE[ref.from] = ref.to;
             });
@@ -382,7 +424,6 @@ class PushOperation {
         }
     }
 
-
     /**
      *
      * @returns {Promise<string>} returns VCS commit id
@@ -407,10 +448,7 @@ class PushOperation {
             return 'NONE';
         }
 
-        const commits = await handler.getCommitsSince(
-            this._directory,
-            latestVersion.repository.commit
-        );
+        const commits = await handler.getCommitsSince(this._directory, latestVersion.repository.commit);
 
         return calculateVersionIncrement(commits);
     }
@@ -422,7 +460,7 @@ class PushOperation {
      */
     async calculateMinimumIncrement(currentCommit) {
         let increment = 'NONE';
-        for(let asset of this.assetDefinitions) {
+        for (let asset of this.assetDefinitions) {
             const result = await this.calculateConventionalIncrement(asset.metadata.name, currentCommit);
             if (result === 'MAJOR') {
                 increment = result;
@@ -472,7 +510,6 @@ class PushOperation {
         return this._registryService.resolveDependencies(asset);
     }
 
-
     /**
      *
      * @param {AssetDefinition} asset
@@ -491,21 +528,21 @@ class PushOperation {
             },
             {
                 type: 'text',
-                path: Path.join(this._directory, 'README.txt')
+                path: Path.join(this._directory, 'README.txt'),
             },
             {
                 type: 'text',
-                path: Path.join(this._directory, 'README')
-            }
-        ]
+                path: Path.join(this._directory, 'README'),
+            },
+        ];
 
         for (let i = 0; i < paths.length; i++) {
             const pathInfo = paths[i];
             if (FS.existsSync(pathInfo.path)) {
                 return {
                     type: pathInfo.type,
-                    content: FS.readFileSync(pathInfo.path).toString()
-                }
+                    content: FS.readFileSync(pathInfo.path).toString(),
+                };
             }
         }
 
@@ -519,25 +556,24 @@ class PushOperation {
      */
     async perform() {
         const vcsHandler = await this.vcsHandler();
-        const artifactHandler = await this.artifactHandler();
         const dryRun = !!this.options.dryRun;
-
 
         //Make sure file structure is as expected
         await this._progressListener.progress('Verifying files exist', async () => this.checkExists());
 
         await this._progressListener.progress('Verifying working directory', async () => this.checkWorkingDirectory());
 
+        await this.checkAssetKindOfKind();
+
+        const artifactHandler = await this.artifactHandler();
+
         const commit = vcsHandler ? await this.getCurrentVcsCommit() : null;
 
         let minimumIncrement = 'NONE';
         if (vcsHandler && commit) {
-            await this._progressListener.progress(
-                'Calculating conventional commit increment',
-                async () => {
-                    minimumIncrement = await this.calculateMinimumIncrement(commit);
-                }
-            )
+            await this._progressListener.progress('Calculating conventional commit increment', async () => {
+                minimumIncrement = await this.calculateMinimumIncrement(commit);
+            });
         }
 
         await this.checkDependencies();
@@ -546,27 +582,26 @@ class PushOperation {
 
         await this.runTests(artifactHandler);
 
-        const {branch, main} = vcsHandler ?
-            await vcsHandler.getBranch(this._directory)
-            : {main: true, branch: 'master'};
+        const { branch, main } = vcsHandler
+            ? await vcsHandler.getBranch(this._directory)
+            : { main: true, branch: 'master' };
 
         const checksum = await artifactHandler.calculateChecksum();
 
-        const reservation = await this._progressListener.progress(
-            `Create version reservation`,
-            async () => this.reserveVersions({
+        const reservation = await this._progressListener.progress(`Create version reservation`, async () =>
+            this.reserveVersions({
                 assets: this.assetDefinitions,
                 mainBranch: main,
                 branchName: branch,
                 commit,
                 checksum,
-                minimumIncrement
-            })
+                minimumIncrement,
+            }),
         );
 
         const existingVersions = [];
 
-        reservation.versions = reservation.versions.filter(version => {
+        reservation.versions = reservation.versions.filter((version) => {
             if (version.exists) {
                 existingVersions.push(version);
             }
@@ -575,7 +610,7 @@ class PushOperation {
 
         if (existingVersions.length > 0) {
             this._progressListener.info(`Version already existed remotely:`);
-            existingVersions.forEach(v => {
+            existingVersions.forEach((v) => {
                 this._progressListener.info(` - ${v.content.metadata.name}:${v.version}`);
             });
         }
@@ -583,17 +618,17 @@ class PushOperation {
         if (reservation.versions.length < 1) {
             this._progressListener.info(`No new versions found.`);
             return {
-                references: existingVersions.map(assetVersion => {
+                references: existingVersions.map((assetVersion) => {
                     return `kapeta://${assetVersion.content.metadata.name}:${assetVersion.version}`;
                 }),
-                mainBranch: main
+                mainBranch: main,
             };
         }
 
         this._progressListener.info(`Got new versions: `);
-        reservation.versions.forEach(v => {
+        reservation.versions.forEach((v) => {
             this._progressListener.info(` - ${v.content.metadata.name}:${v.version}`);
-        })
+        });
 
         /**
          * @type {AssetVersion[]}
@@ -601,8 +636,6 @@ class PushOperation {
         const assetVersions = [];
 
         try {
-
-
             let commitId;
             /**
              * @type {Repository<any>}
@@ -621,11 +654,15 @@ class PushOperation {
                     details: await vcsHandler.getCheckoutInfo(this._directory),
                     commit,
                     branch,
-                    main
+                    main,
                 };
                 commitId = commit;
                 if (main) {
-                    this._progressListener.info(`Assigning ${vcsHandler.getName()} commit id to version: ${commitId} > [${reservation.versions.map(v => v.version).join(', ')}]`);
+                    this._progressListener.info(
+                        `Assigning ${vcsHandler.getName()} commit id to version: ${commitId} > [${reservation.versions
+                            .map((v) => v.version)
+                            .join(', ')}]`,
+                    );
                     if (reservation.versions.length > 1) {
                         for (let i = 0; i < reservation.versions.length; i++) {
                             const version = reservation.versions[i].version;
@@ -640,13 +677,11 @@ class PushOperation {
                 }
             }
 
-
             this._progressListener.info(`Calculated checksum for artifact: ${checksum}`);
 
             const readme = this.getReadmeData();
 
             if (!dryRun) {
-
                 for (let i = 0; i < reservation.versions.length; i++) {
                     const reservedVersion = reservation.versions[i];
                     const name = reservedVersion.content.metadata.name;
@@ -664,15 +699,15 @@ class PushOperation {
                         checksum,
                         readme,
                         repository,
-                        artifact
-                    }
+                        artifact,
+                    };
 
                     assetVersions.push(assetVersion);
                 }
 
                 await this._progressListener.progress(
-                    `Committing versions: ${assetVersions.map(av => av.version)}`,
-                    async () => this.commitReservation(reservation, assetVersions)
+                    `Committing versions: ${assetVersions.map((av) => av.version)}`,
+                    async () => this.commitReservation(reservation, assetVersions),
                 );
 
                 if (vcsHandler && vcsTags.length > 0) {
@@ -695,7 +730,6 @@ class PushOperation {
                     const reservedVersion = reservation.versions[i];
                     const name = reservedVersion.content.metadata.name;
 
-
                     /**
                      *
                      * @type {AssetVersion}
@@ -706,11 +740,11 @@ class PushOperation {
                         checksum,
                         readme,
                         repository,
-                        artifact: null
-                    }
+                        artifact: null,
+                    };
 
                     assetVersions.push(assetVersion);
-                    this._progressListener.info('Result:')
+                    this._progressListener.info('Result:');
                     this._progressListener.info(YAML.stringify(assetVersions));
                 }
 
@@ -718,12 +752,11 @@ class PushOperation {
             }
 
             return {
-                references: assetVersions.map(assetVersion => {
+                references: assetVersions.map((assetVersion) => {
                     return `kapeta://${assetVersion.content.metadata.name}:${assetVersion.version}`;
                 }),
-                mainBranch: main
+                mainBranch: main,
             };
-
         } catch (e) {
             await this._progressListener.progress('Aborting version', async () => this.abortReservation(reservation));
             throw e;
