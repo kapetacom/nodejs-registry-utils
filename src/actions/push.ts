@@ -1,3 +1,7 @@
+/**
+ * Copyright 2023 Kapeta Inc.
+ * SPDX-License-Identifier: MIT
+ */
 import { PushOperation } from './PushOperation';
 import { link } from './link';
 import { install } from './install';

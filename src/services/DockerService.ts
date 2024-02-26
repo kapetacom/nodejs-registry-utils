@@ -1,3 +1,7 @@
+/**
+ * Copyright 2023 Kapeta Inc.
+ * SPDX-License-Identifier: MIT
+ */
 import DockerfileParser from 'docker-file-parser';
 import FS from 'fs';
 import Path from 'path';

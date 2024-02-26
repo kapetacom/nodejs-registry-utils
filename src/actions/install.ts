@@ -1,3 +1,7 @@
+/**
+ * Copyright 2023 Kapeta Inc.
+ * SPDX-License-Identifier: MIT
+ */
 import Path from 'node:path';
 import OS from 'node:os';
 import YAML from 'yaml';

@@ -1,3 +1,7 @@
+/**
+ * Copyright 2023 Kapeta Inc.
+ * SPDX-License-Identifier: MIT
+ */
 import FS from 'node:fs';
 import URL from 'node:url';
 import Path from 'node:path';

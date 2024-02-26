@@ -1,3 +1,7 @@
+/**
+ * Copyright 2023 Kapeta Inc.
+ * SPDX-License-Identifier: MIT
+ */
 import YAML from 'yaml';
 import { parseKapetaUri } from '@kapeta/nodejs-utils';
 import { RegistryService } from '../services/RegistryService';

@@ -1,3 +1,7 @@
+/**
+ * Copyright 2023 Kapeta Inc.
+ * SPDX-License-Identifier: MIT
+ */
 import { DockerHandler } from './handlers/artifact-handlers/DockerHandler';
 import { NPMHandler } from './handlers/artifact-handlers/NPMHandler';
 import { MavenHandler } from './handlers/artifact-handlers/MavenHandler';

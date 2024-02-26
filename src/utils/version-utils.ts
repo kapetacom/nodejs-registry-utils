@@ -1,3 +1,7 @@
+/**
+ * Copyright 2023 Kapeta Inc.
+ * SPDX-License-Identifier: MIT
+ */
 import { parseVersion } from '@kapeta/nodejs-utils';
 import CommitParser from 'conventional-commits-parser';
 

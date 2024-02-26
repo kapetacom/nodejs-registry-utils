@@ -1,3 +1,7 @@
+/**
+ * Copyright 2023 Kapeta Inc.
+ * SPDX-License-Identifier: MIT
+ */
 import { URL } from 'url';
 import { PathLike, existsSync, readFileSync, writeFileSync, unlinkSync, renameSync } from 'fs';
 import Config from '../../config';

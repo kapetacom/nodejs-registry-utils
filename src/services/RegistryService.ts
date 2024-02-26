@@ -1,3 +1,7 @@
+/**
+ * Copyright 2023 Kapeta Inc.
+ * SPDX-License-Identifier: MIT
+ */
 import request from 'request-promise-native';
 import { KapetaAPI } from '@kapeta/nodejs-api-client';
 import { parseKapetaUri } from '@kapeta/nodejs-utils';

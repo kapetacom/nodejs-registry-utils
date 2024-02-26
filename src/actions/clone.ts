@@ -1,3 +1,7 @@
+/**
+ * Copyright 2023 Kapeta Inc.
+ * SPDX-License-Identifier: MIT
+ */
 import * as Path from 'path';
 import * as FS from 'fs';
 import * as FSExtra from 'fs-extra';

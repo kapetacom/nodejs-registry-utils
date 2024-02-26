@@ -1,3 +1,7 @@
+/**
+ * Copyright 2023 Kapeta Inc.
+ * SPDX-License-Identifier: MIT
+ */
 import { versionFormatter, calculateVersionIncrement } from './version-utils';
 
 describe('versionFormatter', () => {

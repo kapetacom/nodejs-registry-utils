@@ -1,3 +1,7 @@
+/**
+ * Copyright 2023 Kapeta Inc.
+ * SPDX-License-Identifier: MIT
+ */
 import * as FS from 'node:fs';
 import { parseKapetaUri } from '@kapeta/nodejs-utils';
 import * as FSExtra from 'fs-extra';

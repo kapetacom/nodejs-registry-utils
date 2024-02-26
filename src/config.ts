@@ -1,3 +1,7 @@
+/**
+ * Copyright 2023 Kapeta Inc.
+ * SPDX-License-Identifier: MIT
+ */
 import * as FS from 'fs';
 import * as YAML from 'yaml';
 import ClusterConfiguration from '@kapeta/local-cluster-config';

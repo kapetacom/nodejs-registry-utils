@@ -1,3 +1,7 @@
+/**
+ * Copyright 2023 Kapeta Inc.
+ * SPDX-License-Identifier: MIT
+ */
 import Config from '../../config';
 import FSExtra from 'fs-extra';
 import URL from 'url';

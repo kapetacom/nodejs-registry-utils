@@ -1,3 +1,7 @@
+/**
+ * Copyright 2023 Kapeta Inc.
+ * SPDX-License-Identifier: MIT
+ */
 import { ProgressListener, VCSHandler, VCSHandlerFactory } from '../types';
 import { GitHandler } from './vcs-handlers/GitHandler';
 

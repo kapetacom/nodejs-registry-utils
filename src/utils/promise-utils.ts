@@ -1,3 +1,7 @@
+/**
+ * Copyright 2023 Kapeta Inc.
+ * SPDX-License-Identifier: MIT
+ */
 import { Stream } from 'stream';
 
 type DataHandler = (data: any) => void;
