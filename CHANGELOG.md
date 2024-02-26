@@ -1,3 +1,11 @@
+## [0.11.1](https://github.com/kapetacom/nodejs-registry-utils/compare/v0.11.0...v0.11.1) (2024-02-26)
+
+
+### Bug Fixes
+
+* Bump config mapper ([4422706](https://github.com/kapetacom/nodejs-registry-utils/commit/44227064447333ea5b77be82ca8d58e000445166))
+* Bump config mapper (retry) ([d76515d](https://github.com/kapetacom/nodejs-registry-utils/commit/d76515dd9aef2efb8ef5b0429174760bd3d0f490))
+
 # [0.11.0](https://github.com/kapetacom/nodejs-registry-utils/compare/v0.10.0...v0.11.0) (2024-02-26)
 
 
