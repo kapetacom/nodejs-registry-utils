@@ -1,37 +1,29 @@
-/**
- * Copyright 2023 Kapeta Inc.
- * SPDX-License-Identifier: MIT
- */
+import FS from 'node:fs';
+import URL from 'node:url';
+import Path from 'node:path';
+import os from 'node:os';
+import FSExtra from 'fs-extra';
+import XmlJS from 'xml-js';
+import Config from '../../config';
+import { hashElement } from 'folder-hash';
+import { ArtifactHandler, MavenDetails, ProgressListener } from '../../types';
 
-const FS = require('node:fs');
-const URL = require("node:url");
-const Path = require('node:path');
-const XmlJS = require('xml-js');
-const Config = require("../../config");
-const { hashElement } = require('folder-hash');
-const os = require("os");
-const FSExtra = require("fs-extra");
-const {KapetaAPI} = require("@kapeta/nodejs-api-client");
+const MAVEN_SERVER_ID: string = 'kapeta';
 
-const MAVEN_SERVER_ID = 'kapeta';
-/**
- * @class
- * @implements {ArtifactHandler<MavenDetails>}
- */
-class MavenHandler {
-    static getType() {
-        return "maven";
+export class MavenHandler implements ArtifactHandler<MavenDetails> {
+    static getType(): string {
+        return 'maven';
     }
 
-    static isSupported(directory) {
-        return FS.existsSync(Path.join(directory,'pom.xml'));
+    static isSupported(directory: string): boolean {
+        return FS.existsSync(Path.join(directory, 'pom.xml'));
     }
 
-    static create(progressListener, directory) {
+    static create(progressListener: ProgressListener, directory: string): MavenHandler {
         return new MavenHandler(progressListener, directory);
     }
 
-    static generateSettings() {
+    static generateSettings(): any {
         return XmlJS.xml2js(`<?xml version="1.0" encoding="UTF-8"?>
                 <settings   
                     xsi:schemaLocation="http://maven.apache.org/SETTINGS/1.1.0 http://maven.apache.org/xsd/settings-1.1.0.xsd" 
@@ -41,7 +33,7 @@ class MavenHandler {
         `);
     }
 
-    static generateServer(token) {
+    static generateServer(token: string): any {
         return XmlJS.xml2js(`
             <server>
                 <id>${MAVEN_SERVER_ID}</id>
@@ -57,13 +49,13 @@ class MavenHandler {
         `).elements[0];
     }
 
-    /**
-     *
-     * @param {ProgressListener} progressListener
-     * @param {string} directory
-     * @param {string} accessToken
-     */
-    constructor(progressListener, directory, accessToken) {
+    private _progressListener: ProgressListener;
+    private _directory: string;
+    private _hostInfo: URL.UrlWithStringQuery;
+    private _configFile: string | null;
+    private _accessToken: string | undefined;
+
+    constructor(progressListener: ProgressListener, directory: string, accessToken?: string) {
         this._progressListener = progressListener;
         this._directory = directory;
         this._hostInfo = URL.parse(Config.data.registry.maven);
@@ -72,9 +64,9 @@ class MavenHandler {
         this._ensureConfig();
     }
 
-    _ensureConfig() {
+    private _ensureConfig(): void {
         this._configFile = `${os.homedir()}/.m2/settings.xml`;
-        let config;
+        let config: any;
         if (FS.existsSync(this._configFile)) {
             config = XmlJS.xml2js(FS.readFileSync(this._configFile).toString());
             this._progressListener.info(`Ensuring maven server configuration in ${this._configFile}`);
@@ -84,69 +76,66 @@ class MavenHandler {
             config = MavenHandler.generateSettings();
         }
 
-        let servers = config.elements[0].elements.find(e => e.name === 'servers');
+        let servers = config.elements[0].elements.find((e: any) => e.name === 'servers');
         if (!servers) {
             servers = XmlJS.xml2js('<servers></servers>').elements[0];
             config.elements[0].elements.push(servers);
         }
 
-        let kapetaServer = servers.elements.find(server => {
-            return server.elements.find(el => el.name === 'id').elements[0].text === MAVEN_SERVER_ID;
+        let kapetaServer = servers.elements.find((server: any) => {
+            return server.elements.find((el: any) => el.name === 'id').elements[0].text === MAVEN_SERVER_ID;
         });
 
-        const newServer = MavenHandler.generateServer(this._accessToken ?
-            `Bearer ${this._accessToken}`
-            : 'anonymous');
+        const newServer = MavenHandler.generateServer(this._accessToken ? `Bearer ${this._accessToken}` : 'anonymous');
 
         if (kapetaServer) {
             kapetaServer.elements = newServer.elements;
-        } else  {
+        } else {
             kapetaServer = newServer;
             servers.elements.push(kapetaServer);
         }
 
-        const newSettings = XmlJS.js2xml(config, {spaces: 4});
+        const newSettings = XmlJS.js2xml(config, { spaces: 4 });
 
         FS.writeFileSync(this._configFile, newSettings);
     }
 
-
-    getName() {
-        return "Maven";
+    getName(): string {
+        return 'Maven';
     }
 
-    async verify() {
-        const cmd = (process.platform === 'win32') ? 'where mvn' : 'which mvn';
-        return await this._progressListener.progress('Checking if MVN is available',
-            () => this._progressListener.run(cmd, this._directory)
+    async verify(): Promise<void> {
+        const cmd = process.platform === 'win32' ? 'where mvn' : 'which mvn';
+        return await this._progressListener.progress('Checking if MVN is available', () =>
+            this._progressListener.run(cmd, this._directory),
         );
     }
 
-    async calculateChecksum() {
-        const result = await hashElement(Path.join(this._directory,'target'), {
+    async calculateChecksum(): Promise<string> {
+        const result = await hashElement(Path.join(this._directory, 'target'), {
             folders: {
                 exclude: ['*'],
                 matchPath: false,
                 ignoreBasename: true,
-                ignoreRootName: true
+                ignoreRootName: true,
             },
             files: {
-                include: ['*.jar']
-            }
+                include: ['*.jar'],
+            },
         });
 
         if (result.children && result.children.length > 0) {
-            return result.children[0].hash
+            return result.children[0].hash;
         }
 
         return result.hash;
     }
 
-    _writePOM(pomRaw) {
+    private _writePOM(pomRaw: string): void {
         FS.writeFileSync(Path.join(this._directory, 'pom.xml'), pomRaw);
     }
 
-    _makePOMBackup() {
+    private _makePOMBackup(): void {
         const backupFile = Path.join(this._directory, 'pom.xml.original');
         if (FS.existsSync(backupFile)) {
             FS.unlinkSync(backupFile);
@@ -154,7 +143,7 @@ class MavenHandler {
         FS.copyFileSync(Path.join(this._directory, 'pom.xml'), backupFile);
     }
 
-    _restorePOMBackup() {
+    private _restorePOMBackup(): void {
         const backupFile = Path.join(this._directory, 'pom.xml.original');
         if (FS.existsSync(backupFile)) {
             FS.unlinkSync(Path.join(this._directory, 'pom.xml'));
@@ -162,7 +151,7 @@ class MavenHandler {
         }
     }
 
-    async push(name, version, commit) {
+    async push(name: string, version: string, commit: string): Promise<{ type: string; details: MavenDetails }> {
         const command = `mvn --settings "${this._configFile}" deploy -B -DskipTests=1 -DaltDeploymentRepository=${MAVEN_SERVER_ID}::default::${this._hostInfo.href}`;
 
         const [groupId, artifactId] = name.split(/\//);
@@ -175,22 +164,22 @@ class MavenHandler {
 
         const project = pom.elements[0];
 
-        const setValue = (name, value) => {
-            project.elements.find(e => e.name === name).elements[0].text = value;
+        const setValue = (name: string, value: string): void => {
+            project.elements.find((e: any) => e.name === name).elements[0].text = value;
         };
 
         setValue('groupId', groupId);
         setValue('artifactId', artifactId);
         setValue('version', version);
 
-        const newPom = XmlJS.js2xml(pom, {spaces: 4});
+        const newPom = XmlJS.js2xml(pom, { spaces: 4 });
 
         this._writePOM(newPom);
 
         try {
-
-            await this._progressListener.progress(`Deploying maven package: ${groupId}:${artifactId}[${version}]`,
-                () => this._progressListener.run(command, this._directory));
+            await this._progressListener.progress(`Deploying maven package: ${groupId}:${artifactId}[${version}]`, () =>
+                this._progressListener.run(command, this._directory),
+            );
         } finally {
             this._restorePOMBackup();
         }
@@ -201,35 +190,33 @@ class MavenHandler {
                 groupId,
                 artifactId,
                 version,
-                registry: this._hostInfo.href
-            }
-        }
+                registry: this._hostInfo.href,
+            },
+        };
     }
 
-    /**
-     *
-     * @param {MavenDetails} details
-     * @param {string} target
-     * @returns {Promise<never>}
-     */
-    async pull(details, target) {
+    async pull(details: MavenDetails, target: string): Promise<void> {
         const artifact = `${details.groupId}:${details.artifactId}:${details.version}`;
         const repo = `${MAVEN_SERVER_ID}::default::${details.registry}`;
         const dependencyGetCmd = `mvn -U --settings "${this._configFile}" dependency:get -B -Ddest=${target} -Dartifact=${artifact} -DremoteRepositories=${repo}`;
-        await this._progressListener.progress('Pulling maven package', () => this._progressListener.run(dependencyGetCmd, this._directory));
+        await this._progressListener.progress('Pulling maven package', () =>
+            this._progressListener.run(dependencyGetCmd, this._directory),
+        );
     }
 
-    async install(sourcePath, targetPath) {
-        FSExtra.moveSync(sourcePath, targetPath, {recursive: true, overwrite: true});
+    async install(sourcePath: string, targetPath: string): Promise<void> {
+        FSExtra.moveSync(sourcePath, targetPath, { overwrite: true });
     }
 
-    async build() {
-        return this._progressListener.progress('Building maven package', () => this._progressListener.run('mvn -U clean package -B', this._directory));
+    async build(): Promise<void> {
+        return this._progressListener.progress('Building maven package', () =>
+            this._progressListener.run('mvn -U clean package -B', this._directory),
+        );
     }
 
-    async test() {
-        return this._progressListener.progress('Testing maven package', () => this._progressListener.run('mvn -U test -B', this._directory));
+    async test(): Promise<void> {
+        return this._progressListener.progress('Testing maven package', () =>
+            this._progressListener.run('mvn -U test -B', this._directory),
+        );
     }
 }
-
-module.exports = MavenHandler

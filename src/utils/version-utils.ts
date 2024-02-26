@@ -1,32 +1,27 @@
-/**
- * Copyright 2023 Kapeta Inc.
- * SPDX-License-Identifier: MIT
- */
+import { parseVersion } from '@kapeta/nodejs-utils';
+import CommitParser from 'conventional-commits-parser';
 
-const _ = require('lodash');
-const {parseVersion} = require("@kapeta/nodejs-utils");
-const CommitParser = require('conventional-commits-parser');
+interface Commit {
+    type: string;
+    scope: string;
+    subject: string;
+    notes: string[];
+}
 
 const CommitParserOptions = {
     headerPattern: /^(\w*)(?:\((.*)\))?!?: (.*)$/,
     breakingHeaderPattern: /^(\w*)(?:\((.*)\))?!: (.*)$/,
-    headerCorrespondence: [
-        'type',
-        'scope',
-        'subject'
-    ],
+    headerCorrespondence: ['type', 'scope', 'subject'],
     noteKeywords: ['BREAKING CHANGE', 'BREAKING-CHANGE'],
     revertPattern: /^(?:Revert|revert:)\s"?([\s\S]+?)"?\s*This reverts commit (\w*)\./i,
     revertCorrespondence: ['header', 'hash'],
-    issuePrefixes: ['#']
-}
+    issuePrefixes: ['#'],
+};
 
+export function versionFormatter(version: string) {
+    const v = parseVersion(version);
 
-
-exports.versionFormatter = function versionFormatter(version) {
-    const v = parseVersion(version)
-
-    function maybeAppendPreRelease(out) {
+    function maybeAppendPreRelease(out: string) {
         if (v.preRelease) {
             out += '-' + v.preRelease;
             if (v.preReleaseIteration) {
@@ -56,37 +51,33 @@ exports.versionFormatter = function versionFormatter(version) {
         },
         toString() {
             return this.toFullVersion();
-        }
+        },
     };
 }
 
-/**
- * Get version increment from git logs
- *
- * Calculated from conventional commits:
- * https://www.conventionalcommits.org/en/v1.0.0/
- *
- * @param {string[]} gitLogs
- * @returns {'PATCH'|'MINOR'|'MAJOR'|'NONE'} Version increment - NONE is returned if no commits are found
- */
-exports.calculateVersionIncrement = function calculateVersionIncrement(gitLogs) {
+export function calculateVersionIncrement(gitLogs: string[]): 'PATCH' | 'MINOR' | 'MAJOR' | 'NONE' {
     if (!gitLogs || gitLogs.length === 0) {
         return 'NONE';
     }
-    const commits = gitLogs.map((log) => {
-        try {
-            return CommitParser.sync(log, CommitParserOptions)
-        } catch (e) {
-            console.log('Failed to parse commit: ', e);
-            return null;
-        }
-    }).filter((commit) => {
-        return commit.type;
-    });
+    const commits = gitLogs
+        .map((log) => {
+            try {
+                return CommitParser.sync(log, CommitParserOptions);
+            } catch (e) {
+                console.log('Failed to parse commit: ', e);
+                return null;
+            }
+        })
+        .filter((commit) => {
+            return commit?.type;
+        });
 
     let increment = 0;
     for (const commit of commits) {
-        switch (commit.type.toLowerCase()) {
+        if (!commit?.type) {
+            continue;
+        }
+        switch (commit.type?.toLowerCase()) {
             case 'feat':
                 if (increment < 2) {
                     increment = 2;
@@ -99,10 +90,10 @@ exports.calculateVersionIncrement = function calculateVersionIncrement(gitLogs) 
                 break;
         }
 
-        const isBreaking = commit.notes &&
-                                    commit.notes.length > 0 &&
-                                    commit.notes
-                                        .some((note) => CommitParserOptions.noteKeywords.includes(note.title.toUpperCase()));
+        const isBreaking =
+            commit.notes &&
+            commit.notes.length > 0 &&
+            commit.notes.some((note) => CommitParserOptions.noteKeywords.includes(note.title.toUpperCase()));
 
         if (isBreaking) {
             increment = 3;

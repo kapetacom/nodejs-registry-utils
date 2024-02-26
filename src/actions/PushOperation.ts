@@ -1,99 +1,74 @@
-/**
- * Copyright 2023 Kapeta Inc.
- * SPDX-License-Identifier: MIT
- */
+import Path from 'path';
+import FS from 'fs';
+import YAML from 'yaml';
+import Config from '../config';
+import { RegistryService } from '../services/RegistryService';
 
-const Path = require('path');
-const FS = require('fs');
-const YAML = require('yaml');
+import { parseKapetaUri } from '@kapeta/nodejs-utils';
+import ClusterConfiguration from '@kapeta/local-cluster-config';
+import glob from 'glob';
+import { KapetaAPI } from '@kapeta/nodejs-api-client';
+import { calculateVersionIncrement } from '../utils/version-utils';
+import { Attachment, AttachmentContentFormat } from '@kapeta/schemas';
+import { KAPETA_CONFIG_FILE, KAPETA_DOTENV_FILE, createAttachmentFromFile, setAttachment } from '@kapeta/config-mapper';
 
-const RegistryService = require('../services/RegistryService');
-const ArtifactHandler = require('../handlers/ArtifactHandler');
-const VCSHandler = require('../handlers/VCSHandler');
-const Config = require('../config');
+import {
+    ArtifactHandler,
+    AssetDefinition,
+    AssetReference,
+    AssetVersion,
+    ProgressListener,
+    PushCommandOptions,
+    ReadmeData,
+    ReferenceMap,
+    Repository,
+    Reservation,
+    ReservationRequest,
+    VCSHandler,
+} from '../types';
+import { getVCSHandler } from '../handlers/VCSHandler';
+import { getArtifactHandler } from '../handlers/ArtifactHandler';
 
-const { parseKapetaUri } = require('@kapeta/nodejs-utils');
-const ClusterConfiguration = require('@kapeta/local-cluster-config').default;
-const glob = require('glob');
-const { KapetaAPI } = require('@kapeta/nodejs-api-client');
-const { calculateVersionIncrement } = require('../utils/version-utils');
+const LOCAL_VERSION_MAPPING_CACHE: { [key: string]: string } = {};
 
-const LOCAL_VERSION_MAPPING_CACHE = {};
+export class PushOperation {
+    private readonly _progressListener: ProgressListener;
+    private readonly _directory: string;
+    private readonly options: PushCommandOptions;
+    private _registryService: RegistryService;
+    private _assetKind: string | null;
+    private assetDefinitions: AssetDefinition[] | null;
+    private reservation: Reservation | null;
+    private _vcsHandler: VCSHandler | null | boolean;
+    private _artifactHandler: ArtifactHandler | null | boolean;
 
-class PushOperation {
-    /**
-     *
-     * @param {ProgressListener} progressListener
-     * @param {string} directory
-     * @param {PushCommandOptions} options
-     */
-    constructor(progressListener, directory, options) {
-        /**
-         *
-         * @type {ProgressListener}
-         * @private
-         */
+    public file: string;
+
+    constructor(progressListener: ProgressListener, directory: string, options: PushCommandOptions) {
         this._progressListener = progressListener;
 
         this._registryService = new RegistryService(Config.data.registry.url, Config.data.registry.organisationId);
 
-        /**
-         * @type {string}
-         */
         this.file = Path.resolve(process.cwd(), directory, 'kapeta.yml');
 
-        /**
-         * @type {string|null}
-         */
         this._assetKind = null;
 
-        /**
-         *
-         * @type {string}
-         */
         this._directory = Path.dirname(this.file);
 
-        /**
-         *
-         * @type {PushCommandOptions}
-         */
         this.options = options;
 
-        /**
-         *
-         * @type {AssetDefinition[]|null}
-         */
         this.assetDefinitions = null;
 
-        /**
-         *
-         * @type {Reservation|null}
-         */
         this.reservation = null;
 
-        /**
-         *
-         * @type {VCSHandler|null|boolean}
-         * @private
-         */
         this._vcsHandler = false;
 
-        /**
-         *
-         * @type {ArtifactHandler|null|boolean}
-         * @private
-         */
         this._artifactHandler = false;
     }
 
-    /**
-     *
-     * @returns {Promise<VCSHandler>}
-     * @private
-     */
-    async vcsHandler() {
+    async vcsHandler(): Promise<VCSHandler> {
         if (this._vcsHandler === false) {
-            this._vcsHandler = await VCSHandler.getVCSHandler(this._progressListener, this._directory);
+            this._vcsHandler = await getVCSHandler(this._progressListener, this._directory);
             if (this._vcsHandler) {
                 this._progressListener.showValue(`Identified version control system`, this._vcsHandler.getName());
             } else {
@@ -101,40 +76,31 @@ class PushOperation {
             }
         }
 
-        return this._vcsHandler;
+        return this._vcsHandler as VCSHandler;
     }
 
-    /**
-     *
-     * @returns {Promise<ArtifactHandler>}
-     * @private
-     */
-    async artifactHandler() {
+    async artifactHandler(): Promise<ArtifactHandler> {
         if (this._artifactHandler === false) {
             const api = new KapetaAPI();
             const accessToken = await api.getAccessToken();
-            this._artifactHandler = await ArtifactHandler.getArtifactHandler(
+            const handler = (this._artifactHandler = await getArtifactHandler(
                 this._progressListener,
-                this._assetKind,
+                this._assetKind!,
                 this._directory,
-                accessToken,
-            );
-            if (this._artifactHandler) {
-                this._progressListener.showValue(`Identified artifact type`, this._artifactHandler.getName());
-                await this._progressListener.progress('Verifying artifact type handler', () =>
-                    this._artifactHandler.verify(),
-                );
+                accessToken!,
+            ));
+            if (handler) {
+                this._progressListener.showValue(`Identified artifact type`, handler.getName());
+                await this._progressListener.progress('Verifying artifact type handler', () => handler.verify());
             } else {
                 await this._progressListener.check(`Identified artifact type`, false);
             }
         }
 
-        return this._artifactHandler;
+        return this._artifactHandler as ArtifactHandler;
     }
 
-    async checkExists() {
-        //Check for kapeta.yml file
-
+    async checkExists(): Promise<void> {
         const blockYml = Path.basename(this.file);
 
         if (!(await this._progressListener.check(blockYml + ' exists', FS.existsSync(this.file)))) {
@@ -163,11 +129,10 @@ class PushOperation {
             }
         });
 
-        // We only support 1 asset per file for now
         this._assetKind = this.assetDefinitions[0].kind;
     }
 
-    async checkWorkingDirectory() {
+    async checkWorkingDirectory(): Promise<void> {
         const handler = await this.vcsHandler();
         if (handler) {
             if (!this.options.ignoreWorkingDirectory) {
@@ -193,12 +158,7 @@ class PushOperation {
         }
     }
 
-    /**
-     *
-     * @param {ReservationRequest} reservationRequest
-     * @returns {Promise<Reservation>}
-     */
-    async reserveVersions(reservationRequest) {
+    async reserveVersions(reservationRequest: ReservationRequest): Promise<Reservation> {
         this.reservation = await this._registryService.reserveVersions(reservationRequest);
         if (!this.reservation) {
             throw new Error('Failed to reserve version - no reservation returned from registry. ');
@@ -206,21 +166,16 @@ class PushOperation {
         return this.reservation;
     }
 
-    /**
-     *
-     * @param {string} name
-     * @returns {Promise<AssetVersion>}
-     */
-    async getLatestVersion(name) {
+    async getLatestVersion(name: string): Promise<AssetVersion> {
         return this._registryService.getLatestVersion(name);
     }
 
-    _hasScript(file) {
+    private _hasScript(file: string): boolean {
         const scriptPath = './scripts/' + file;
         return FS.existsSync(scriptPath);
     }
 
-    async _runScript(file) {
+    private async _runScript(file: string): Promise<void> {
         const scriptPath = './scripts/' + file;
         if (!this._hasScript(file)) {
             throw new Error('Script not found: ' + scriptPath);
@@ -234,12 +189,7 @@ class PushOperation {
         return this._progressListener.run(scriptPath, this._directory);
     }
 
-    /**
-     *
-     * @param {ArtifactHandler} artifactHandler
-     * @returns {Promise<void>}
-     */
-    async runTests(artifactHandler) {
+    async runTests(artifactHandler: ArtifactHandler): Promise<void> {
         if (this.options.skipTests) {
             this._progressListener.info('Skipping tests...');
             return;
@@ -258,10 +208,10 @@ class PushOperation {
         }
     }
 
-    findAssetsInPath() {
+    findAssetsInPath(): { [key: string]: string } {
         const baseDir = Path.dirname(this.file);
         const assetFiles = glob.sync('*/**/kapeta.yml', { cwd: baseDir });
-        const localAssets = {};
+        const localAssets: { [key: string]: string } = {};
         for (let assetFile of assetFiles) {
             const fullPath = Path.join(baseDir, assetFile);
             const yamlData = FS.readFileSync(fullPath).toString();
@@ -274,8 +224,8 @@ class PushOperation {
         return localAssets;
     }
 
-    async checkAssetKindOfKind() {
-        if (this._assetKind.startsWith('core/')) {
+    async checkAssetKindOfKind(): Promise<void> {
+        if (!this._assetKind || this._assetKind.startsWith('core/')) {
             return;
         }
 
@@ -287,47 +237,37 @@ class PushOperation {
 
         const asset = await this._registryService.getVersion(uri.fullName, uri.version);
 
-        // We now know the "kind of the kind"
         this._assetKind = asset.content.kind;
     }
 
-    async checkDependencies() {
+    async checkDependencies(): Promise<void> {
         const localAssets = this.findAssetsInPath();
         await this._progressListener.progress(`Checking ${Object.keys(localAssets).length} dependencies`, async () => {
             const newAssets = [];
 
-            for (let assetDefinition of this.assetDefinitions) {
-                newAssets.push(await this._checkDependenciesFor(assetDefinition, localAssets));
+            if (this.assetDefinitions) {
+                for (let assetDefinition of this.assetDefinitions) {
+                    newAssets.push(await this._checkDependenciesFor(assetDefinition, localAssets));
+                }
             }
 
-            //We overwrite assetDefinitions since we might have resolved some dependencies
             this.assetDefinitions = newAssets;
         });
     }
 
-    /**
-     *
-     * @param {AssetDefinition} asset
-     * @param {{[key:string]:string}} localAssets
-     * @return {Promise<AssetDefinition>}
-     * @private
-     */
-    async _checkDependenciesFor(asset, localAssets) {
+    private async _checkDependenciesFor(
+        asset: AssetDefinition,
+        localAssets: { [key: string]: string },
+    ): Promise<AssetDefinition> {
         const dependencies = await this.resolveDependencies(asset);
-        /**
-         *
-         * @type {ReferenceMap[]}
-         */
-        const dependencyChanges = [];
+        const dependencyChanges: ReferenceMap[] = [];
         for (let dependency of dependencies) {
             const dependencyUri = parseKapetaUri(dependency.name);
             if (dependencyUri.version !== 'local') {
-                //If not local all is well
                 continue;
             }
 
             if (LOCAL_VERSION_MAPPING_CACHE[dependency.name]) {
-                //Mapping already found
                 dependencyChanges.push({
                     from: dependency.name,
                     to: LOCAL_VERSION_MAPPING_CACHE[dependency.name],
@@ -336,7 +276,7 @@ class PushOperation {
             }
 
             const key = `${dependencyUri.handle}/${dependencyUri.name}`;
-            let assetLocalPath;
+            let assetLocalPath: string;
             if (localAssets[key]) {
                 assetLocalPath = localAssets[key];
                 this._progressListener.info(`Resolved local version for ${key} from path: ${assetLocalPath}`);
@@ -362,10 +302,6 @@ class PushOperation {
                 );
             }
 
-            //Local dependency - we need to push that first and
-            //replace version with pushed version - but only "in-flight"
-            //We dont want to change the disk version - since that allows users
-            //to continue working on their local versions + local dependencies
             await this._progressListener.progress(`Pushing local version for ${key}`, async () => {
                 const dependencyOperation = new PushOperation(this._progressListener, assetLocalPath, this.options);
 
@@ -396,7 +332,6 @@ class PushOperation {
 
         if (dependencyChanges.length > 0) {
             dependencyChanges.forEach((ref) => {
-                //Cache mappings for other push operations and assets
                 LOCAL_VERSION_MAPPING_CACHE[ref.from] = ref.to;
             });
             return this.updateDependencies(asset, dependencyChanges);
@@ -405,12 +340,7 @@ class PushOperation {
         return asset;
     }
 
-    /**
-     *
-     * @param {ArtifactHandler} artifactHandler
-     * @returns {Promise<void>}
-     */
-    async runBuild(artifactHandler) {
+    async runBuild(artifactHandler: ArtifactHandler): Promise<void> {
         try {
             await this._progressListener.progress('Building block', async () => {
                 if (this._hasScript('build.sh')) {
@@ -424,27 +354,17 @@ class PushOperation {
         }
     }
 
-    /**
-     *
-     * @returns {Promise<string>} returns VCS commit id
-     */
-    async getCurrentVcsCommit() {
+    async getCurrentVcsCommit(): Promise<string | null> {
         const handler = await this.vcsHandler();
 
         return handler.getLatestCommit(this._directory);
     }
 
-    /**
-     *
-     * @param {string} assetName - name of asset - e.g. my-handle/some-name
-     * @returns {Promise<"PATCH"|"MINOR"|"MAJOR"|"NONE">}
-     */
-    async calculateConventionalIncrement(assetName) {
+    async calculateConventionalIncrement(assetName: string): Promise<'PATCH' | 'MINOR' | 'MAJOR' | 'NONE'> {
         const handler = await this.vcsHandler();
         const latestVersion = await this.getLatestVersion(assetName);
 
         if (!latestVersion?.repository?.commit) {
-            //Latest version didn't exist or didn't have a commit. We can't calculate increment
             return 'NONE';
         }
 
@@ -453,25 +373,22 @@ class PushOperation {
         return calculateVersionIncrement(commits);
     }
 
-    /**
-     *
-     * @param {string} currentCommit current commit id
-     * @returns {Promise<string>}
-     */
-    async calculateMinimumIncrement(currentCommit) {
+    async calculateMinimumIncrement(): Promise<string> {
         let increment = 'NONE';
-        for (let asset of this.assetDefinitions) {
-            const result = await this.calculateConventionalIncrement(asset.metadata.name, currentCommit);
-            if (result === 'MAJOR') {
-                increment = result;
-                break;
-            }
-            if (result === 'MINOR') {
-                increment = result;
-            }
+        if (this.assetDefinitions) {
+            for (let asset of this.assetDefinitions) {
+                const result = await this.calculateConventionalIncrement(asset.metadata.name);
+                if (result === 'MAJOR') {
+                    increment = result;
+                    break;
+                }
+                if (result === 'MINOR') {
+                    increment = result;
+                }
 
-            if (result === 'PATCH' && increment === 'NONE') {
-                increment = result;
+                if (result === 'PATCH' && increment === 'NONE') {
+                    increment = result;
+                }
             }
         }
 
@@ -482,45 +399,49 @@ class PushOperation {
         return increment;
     }
 
-    /**
-     *
-     * @param {Reservation} reservation
-     * @param {AssetVersion[]} assetVersions
-     * @returns {Promise<void>}
-     */
-    async commitReservation(reservation, assetVersions) {
+    async commitReservation(reservation: Reservation, assetVersions: AssetVersion[]): Promise<void> {
         return await this._registryService.commitReservation(reservation.id, assetVersions);
     }
 
-    /**
-     *
-     * @param {Reservation} reservation
-     * @returns {Promise<void>}
-     */
-    async abortReservation(reservation) {
+    async abortReservation(reservation: Reservation): Promise<void> {
         await this._registryService.abortReservation(reservation);
     }
 
-    /**
-     *
-     * @param {AssetDefinition} asset
-     * @return {Promise<AssetReference[]>}
-     */
-    async resolveDependencies(asset) {
+    async resolveDependencies(asset: AssetDefinition): Promise<AssetReference[]> {
         return this._registryService.resolveDependencies(asset);
     }
 
-    /**
-     *
-     * @param {AssetDefinition} asset
-     * @param {ReferenceMap[]} dependencies
-     * @return {Promise<AssetDefinition>}
-     */
-    async updateDependencies(asset, dependencies) {
+    async updateDependencies(asset: AssetDefinition, dependencies: ReferenceMap[]): Promise<AssetDefinition> {
         return this._registryService.updateDependencies(asset, dependencies);
     }
 
-    getReadmeData() {
+    async getAttachments(): Promise<Attachment[]> {
+        const files = [
+            {
+                filename: KAPETA_CONFIG_FILE,
+                contentType: 'application/yaml',
+            },
+            {
+                filename: KAPETA_DOTENV_FILE,
+                contentType: 'text/plain+dotenv',
+            },
+        ];
+
+        const attachments: Attachment[] = [];
+
+        for (const file of files) {
+            const path = Path.join(this._directory, file.filename);
+            if (!FS.existsSync(path)) {
+                continue;
+            }
+            const attachment = await createAttachmentFromFile(path, file.contentType, AttachmentContentFormat.Base64);
+            attachments.push(attachment);
+        }
+
+        return attachments;
+    }
+
+    getReadmeData(): ReadmeData | null {
         const paths = [
             {
                 type: 'markdown',
@@ -549,16 +470,10 @@ class PushOperation {
         return null;
     }
 
-    /**
-     * Calls each check and step in the order it's intended.
-     *
-     * @returns {Promise<{references:string[],mainBranch:boolean}>}
-     */
-    async perform() {
+    async perform(): Promise<{ references: string[]; mainBranch: boolean }> {
         const vcsHandler = await this.vcsHandler();
         const dryRun = !!this.options.dryRun;
 
-        //Make sure file structure is as expected
         await this._progressListener.progress('Verifying files exist', async () => this.checkExists());
 
         await this._progressListener.progress('Verifying working directory', async () => this.checkWorkingDirectory());
@@ -570,9 +485,9 @@ class PushOperation {
         const commit = vcsHandler ? await this.getCurrentVcsCommit() : null;
 
         let minimumIncrement = 'NONE';
-        if (vcsHandler && commit) {
+        if (vcsHandler) {
             await this._progressListener.progress('Calculating conventional commit increment', async () => {
-                minimumIncrement = await this.calculateMinimumIncrement(commit);
+                minimumIncrement = await this.calculateMinimumIncrement();
             });
         }
 
@@ -590,7 +505,7 @@ class PushOperation {
 
         const reservation = await this._progressListener.progress(`Create version reservation`, async () =>
             this.reserveVersions({
-                assets: this.assetDefinitions,
+                assets: this.assetDefinitions || [],
                 mainBranch: main,
                 branchName: branch,
                 commit,
@@ -599,11 +514,14 @@ class PushOperation {
             }),
         );
 
-        const existingVersions = [];
+        const existingVersions: AssetVersion[] = [];
 
         reservation.versions = reservation.versions.filter((version) => {
             if (version.exists) {
-                existingVersions.push(version);
+                existingVersions.push({
+                    content: version.content,
+                    version: version.version,
+                });
             }
             return !version.exists;
         });
@@ -630,23 +548,13 @@ class PushOperation {
             this._progressListener.info(` - ${v.content.metadata.name}:${v.version}`);
         });
 
-        /**
-         * @type {AssetVersion[]}
-         */
-        const assetVersions = [];
+        const assetVersions: AssetVersion[] = [];
 
         try {
             let commitId;
-            /**
-             * @type {Repository<any>}
-             */
-            let repository;
+            let repository: Repository<any> | undefined = undefined;
 
-            /**
-             * Tags for pushing when successful
-             * @type {string[]}
-             */
-            let vcsTags = [];
+            let vcsTags: string[] = [];
 
             if (vcsHandler) {
                 repository = {
@@ -667,11 +575,9 @@ class PushOperation {
                         for (let i = 0; i < reservation.versions.length; i++) {
                             const version = reservation.versions[i].version;
                             const assetDefinition = reservation.versions[i].content;
-                            //Multiple assets in this repo - use separate tags for each
                             vcsTags.push(`v${version}-${assetDefinition.metadata.name}`);
                         }
                     } else if (reservation.versions.length === 1) {
-                        //Only 1 asset in this repo - use simple version
                         vcsTags.push(`v${reservation.versions[0].version}`);
                     }
                 }
@@ -681,21 +587,21 @@ class PushOperation {
 
             const readme = this.getReadmeData();
 
+            const attachments = await this.getAttachments();
+
             if (!dryRun) {
                 for (let i = 0; i < reservation.versions.length; i++) {
                     const reservedVersion = reservation.versions[i];
                     const name = reservedVersion.content.metadata.name;
+                    if (attachments) {
+                        attachments.forEach((attachment) => setAttachment(reservedVersion.content, attachment));
+                    }
+                    const artifact = await artifactHandler.push(name, reservedVersion.version, commitId!);
 
-                    const artifact = await artifactHandler.push(name, reservedVersion.version, commitId);
-
-                    /**
-                     *
-                     * @type {AssetVersion}
-                     */
-                    const assetVersion = {
+                    const assetVersion: AssetVersion = {
                         version: reservedVersion.version,
                         content: reservedVersion.content,
-                        current: true, // When creating a new version, it's always the new current version
+                        current: true,
                         checksum,
                         readme,
                         repository,
@@ -730,11 +636,7 @@ class PushOperation {
                     const reservedVersion = reservation.versions[i];
                     const name = reservedVersion.content.metadata.name;
 
-                    /**
-                     *
-                     * @type {AssetVersion}
-                     */
-                    const assetVersion = {
+                    const assetVersion: AssetVersion = {
                         version: reservedVersion.version,
                         content: reservedVersion.content,
                         checksum,
@@ -763,5 +665,3 @@ class PushOperation {
         }
     }
 }
-
-module.exports.PushOperation = PushOperation;

@@ -3,15 +3,15 @@
  * SPDX-License-Identifier: MIT
  */
 
-const YAML = require('yaml');
-const Path = require("node:path");
-const FS = require("node:fs");
-const FSExtra = require('fs-extra');
-const ClusterConfiguration = require('@kapeta/local-cluster-config').default;
-const glob = require("glob");
+import YAML from 'yaml';
+import Path from 'node:path';
+import FS from 'node:fs';
+import FSExtra from 'fs-extra';
+import ClusterConfiguration from '@kapeta/local-cluster-config';
+import glob from 'glob';
+import { ProgressListener } from '../types';
 
-
-function makeSymLink(directory, versionTarget) {
+function makeSymLink(directory: string, versionTarget: string): void {
     try {
         // use lstat to check if there is an existing symlink
         // throws if nothing is there, but returns file stats even for invalid links
@@ -19,27 +19,20 @@ function makeSymLink(directory, versionTarget) {
         if (FS.lstatSync(versionTarget)) {
             FSExtra.removeSync(versionTarget);
         }
-    } catch(e) {};
+    } catch (e) {}
     FSExtra.mkdirpSync(Path.dirname(versionTarget));
     FSExtra.createSymlinkSync(directory, versionTarget, 'junction');
 }
 
-/**
- *
- * @param {ProgressListener} progressListener
- * @param {string} [source=process.cwd()]
- * @returns {void}
- */
-module.exports = function link(progressListener, source) {
-    const resolvedPath = Path.resolve(source || process.cwd());
+export function link(progressListener: ProgressListener, source: string = process.cwd()): void {
+    const resolvedPath = Path.resolve(source);
 
     const kapetaYmlFilePath = Path.join(resolvedPath, 'kapeta.yml');
     if (!FS.existsSync(kapetaYmlFilePath)) {
         throw new Error('Current working directory is not a valid kapeta asset. Expected a kapeta.yml file');
     }
 
-    const assetInfos = YAML.parseAllDocuments(FS.readFileSync(kapetaYmlFilePath).toString())
-        .map(doc => doc.toJSON());
+    const assetInfos = YAML.parseAllDocuments(FS.readFileSync(kapetaYmlFilePath).toString()).map((doc) => doc.toJSON());
 
     if (assetInfos.length === 0) {
         throw new Error(`Failed to link asset, ${kapetaYmlFilePath} does not contain any assets`);
@@ -51,15 +44,13 @@ module.exports = function link(progressListener, source) {
     const [handle, name] = assetInfo.metadata.name.split('/');
     const target = ClusterConfiguration.getRepositoryAssetPath(handle, name, 'local');
 
-
-    assetInfos.forEach(assetInfo => {
+    assetInfos.forEach((assetInfo) => {
         if (assetInfo.kind === 'core/plan') {
-
             //Asset is a plan - we need to link any locally defined assets as well
-            const assetFiles = glob.sync('*/**/kapeta.yml', {cwd: resolvedPath, absolute: true});
+            const assetFiles = glob.sync('*/**/kapeta.yml', { cwd: resolvedPath, absolute: true });
             if (assetFiles.length > 0) {
                 progressListener.info('Linking local plan asset');
-                assetFiles.forEach(assetFile => {
+                assetFiles.forEach((assetFile) => {
                     link(progressListener, Path.dirname(assetFile));
                 });
             }
@@ -70,5 +61,4 @@ module.exports = function link(progressListener, source) {
     makeSymLink(resolvedPath, target);
 
     progressListener.check('Linking done', true);
-
-};
+}
