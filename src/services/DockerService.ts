@@ -5,7 +5,7 @@
 import DockerfileParser from 'docker-file-parser';
 import FS from 'fs';
 import Path from 'path';
-import glob from 'glob';
+import * as glob from 'glob';
 import tar from 'tar-fs';
 import zlib from 'zlib';
 import crypto from 'crypto';

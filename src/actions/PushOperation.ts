@@ -334,7 +334,7 @@ export class PushOperation {
             });
         }
 
-        if (dependencyChanges.length > 0) {
+        if (!this.options.dryRun && dependencyChanges.length > 0) {
             dependencyChanges.forEach((ref) => {
                 LOCAL_VERSION_MAPPING_CACHE[ref.from] = ref.to;
             });
@@ -639,6 +639,10 @@ export class PushOperation {
                 for (let i = 0; i < reservation.versions.length; i++) {
                     const reservedVersion = reservation.versions[i];
                     const name = reservedVersion.content.metadata.name;
+
+                    if (attachments) {
+                        attachments.forEach((attachment) => setAttachment(reservedVersion.content, attachment));
+                    }
 
                     const assetVersion: AssetVersion = {
                         version: reservedVersion.version,

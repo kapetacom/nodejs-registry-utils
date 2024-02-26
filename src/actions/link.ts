@@ -8,7 +8,7 @@ import Path from 'node:path';
 import FS from 'node:fs';
 import FSExtra from 'fs-extra';
 import ClusterConfiguration from '@kapeta/local-cluster-config';
-import glob from 'glob';
+import * as glob from 'glob';
 import { ProgressListener } from '../types';
 
 function makeSymLink(directory: string, versionTarget: string): void {
