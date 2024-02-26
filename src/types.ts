@@ -30,31 +30,31 @@ export interface CommandOptions {
 
 export interface PullCommandOptions {
     registry: string;
-    nonInteractive: boolean;
+    interactive: boolean;
     target: string;
 }
 
 export interface InstallCommandOptions {
     registry?: string;
-    nonInteractive: boolean;
+    interactive: boolean;
     skipDependencies?: boolean;
 }
 
 export interface UninstallCommandOptions {
-    nonInteractive: boolean;
+    interactive: boolean;
 }
 
 export interface CloneCommandOptions {
     registry: string;
     target: string;
-    nonInteractive: boolean;
+    interactive: boolean;
     skipLinking: boolean;
 }
 
 export interface PushCommandOptions {
     registry: string;
     ignoreWorkingDirectory: boolean;
-    nonInteractive: boolean;
+    interactive: boolean;
     skipTests: boolean;
     verbose: boolean;
     skipInstall: boolean;

@@ -5,7 +5,7 @@
 import * as FS from 'fs';
 import * as YAML from 'yaml';
 import ClusterConfiguration from '@kapeta/local-cluster-config';
-
+import DefaultConfig from './config.default.json';
 const BASEDIR_KAPETA: string = ClusterConfiguration.getKapetaBasedir();
 
 let CONFIG_FILE: string = `${BASEDIR_KAPETA}/registry.yml`;
@@ -20,7 +20,7 @@ export class ConfigWrapper {
     public data: any;
 
     constructor() {
-        this.data = require('./config.default');
+        this.data = DefaultConfig;
     }
 
     public save(): void {

@@ -10,7 +10,7 @@ import { RegistryService } from '../services/RegistryService';
 
 import { parseKapetaUri } from '@kapeta/nodejs-utils';
 import ClusterConfiguration from '@kapeta/local-cluster-config';
-import glob from 'glob';
+import * as glob from 'glob';
 import { KapetaAPI } from '@kapeta/nodejs-api-client';
 import { calculateVersionIncrement } from '../utils/version-utils';
 import { Attachment, AttachmentContentFormat } from '@kapeta/schemas';
