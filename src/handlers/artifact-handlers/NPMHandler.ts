@@ -123,10 +123,18 @@ export class NPMHandler implements ArtifactHandler {
                 }
             });
 
-            if (packageInfo.name !== npmName || packageInfo.version !== version) {
+            if (packageInfo.name !== npmName ||
+                packageInfo.version !== version ||
+                !packageInfo.bundleDependencies ||
+                !packageInfo.bundledDependencies) {
                 this.makePackageBackup();
                 packageInfo.name = npmName;
                 packageInfo.version = version;
+                // Make sure we bundle all dependencies
+                // This is important for the artifact to be self-contained and these packages are all
+                // used as a single unit
+                packageInfo.bundleDependencies = true;
+                packageInfo.bundledDependencies = true;
                 this._writePackageInfo(packageInfo);
                 changedPackage = true;
             }
