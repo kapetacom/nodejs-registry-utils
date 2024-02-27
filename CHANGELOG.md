@@ -1,3 +1,10 @@
+## [0.11.2](https://github.com/kapetacom/nodejs-registry-utils/compare/v0.11.1...v0.11.2) (2024-02-27)
+
+
+### Bug Fixes
+
+* Ensure we publish with bundles dependencies ([#30](https://github.com/kapetacom/nodejs-registry-utils/issues/30)) ([9afacb2](https://github.com/kapetacom/nodejs-registry-utils/commit/9afacb23bf1acddca2ddffe808a1007ea9c1070a))
+
 ## [0.11.1](https://github.com/kapetacom/nodejs-registry-utils/compare/v0.11.0...v0.11.1) (2024-02-26)
 
 
