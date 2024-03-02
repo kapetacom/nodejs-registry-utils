@@ -1,3 +1,10 @@
+## [0.11.3](https://github.com/kapetacom/nodejs-registry-utils/compare/v0.11.2...v0.11.3) (2024-03-02)
+
+
+### Bug Fixes
+
+* Only force YAML if it is a block that has base type executable ([#31](https://github.com/kapetacom/nodejs-registry-utils/issues/31)) ([aa00705](https://github.com/kapetacom/nodejs-registry-utils/commit/aa007059480d7ec31270c4c47eff05146c200bba))
+
 ## [0.11.2](https://github.com/kapetacom/nodejs-registry-utils/compare/v0.11.1...v0.11.2) (2024-02-27)
 
 
