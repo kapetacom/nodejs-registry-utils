@@ -41,6 +41,7 @@ export class PushOperation {
     private readonly options: PushCommandOptions;
     private _registryService: RegistryService;
     private _assetKind: string | null;
+    private _baseKind: string | null;
     private assetDefinitions: AssetDefinition[] | null;
     private reservation: Reservation | null;
     private _vcsHandler: VCSHandler | null | boolean;
@@ -56,6 +57,8 @@ export class PushOperation {
         this.file = Path.resolve(process.cwd(), directory, 'kapeta.yml');
 
         this._assetKind = null;
+
+        this._baseKind = null;
 
         this._directory = Path.dirname(this.file);
 
@@ -89,6 +92,7 @@ export class PushOperation {
             const accessToken = await api.getAccessToken();
             const handler = (this._artifactHandler = await getArtifactHandler(
                 this._progressListener,
+                this._baseKind!,
                 this._assetKind!,
                 this._directory,
                 accessToken!,
@@ -134,6 +138,8 @@ export class PushOperation {
         });
 
         this._assetKind = this.assetDefinitions[0].kind;
+
+        this._baseKind = await this.resolveBaseKind();
     }
 
     async checkWorkingDirectory(): Promise<void> {
@@ -228,9 +234,9 @@ export class PushOperation {
         return localAssets;
     }
 
-    async checkAssetKindOfKind(): Promise<void> {
+    async resolveBaseKind(): Promise<string> {
         if (!this._assetKind || this._assetKind.startsWith('core/')) {
-            return;
+            return this._assetKind!;
         }
 
         const uri = parseKapetaUri(this._assetKind);
@@ -241,7 +247,7 @@ export class PushOperation {
 
         const asset = await this._registryService.getVersion(uri.fullName, uri.version);
 
-        this._assetKind = asset.content.kind;
+        return asset.content.kind;
     }
 
     async checkDependencies(): Promise<void> {
@@ -481,8 +487,6 @@ export class PushOperation {
         await this._progressListener.progress('Verifying files exist', async () => this.checkExists());
 
         await this._progressListener.progress('Verifying working directory', async () => this.checkWorkingDirectory());
-
-        await this.checkAssetKindOfKind();
 
         const artifactHandler = await this.artifactHandler();
 

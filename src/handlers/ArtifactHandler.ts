@@ -13,27 +13,24 @@ const ARTIFACT_HANDLERS: ArtifactHandlerFactory[] = [DockerHandler, NPMHandler, 
 
 export async function getArtifactHandler(
     progressListener: ProgressListener,
+    baseKind: string,
     assetKind: string,
     directory: string,
     accessToken: string,
 ): Promise<ArtifactHandler | null> {
     let handler: ArtifactHandler | null = null;
 
-    switch (assetKind) {
-        case 'core/block-type-executable': {
-            if (YAMLHandler.isSupported()) {
-                return YAMLHandler.create(progressListener, directory, accessToken);
-            }
-            break;
+    if (baseKind === 'core/block-type-executable' && assetKind !== baseKind) {
+        // If this is a block of a block-type that is executable, we need to use the YAML handler
+        if (YAMLHandler.isSupported()) {
+            return YAMLHandler.create(progressListener, directory, accessToken);
         }
+    }
 
-        default: {
-            for (let i = 0; i < ARTIFACT_HANDLERS.length; i++) {
-                const handler = ARTIFACT_HANDLERS[i];
-                if (await handler.isSupported(directory)) {
-                    return handler.create(progressListener, directory, accessToken);
-                }
-            }
+    for (let i = 0; i < ARTIFACT_HANDLERS.length; i++) {
+        const handler = ARTIFACT_HANDLERS[i];
+        if (await handler.isSupported(directory)) {
+            return handler.create(progressListener, directory, accessToken);
         }
     }
 
