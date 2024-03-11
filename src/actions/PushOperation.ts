@@ -445,6 +445,7 @@ export class PushOperation {
                 continue;
             }
             const attachment = await createAttachmentFromFile(path, file.contentType, AttachmentContentFormat.Base64);
+            this._progressListener.info(`Adding attachment: ${file.filename}`);
             attachments.push(attachment);
         }
 
