@@ -1,3 +1,10 @@
+## [0.11.4](https://github.com/kapetacom/nodejs-registry-utils/compare/v0.11.3...v0.11.4) (2024-03-11)
+
+
+### Bug Fixes
+
+* Add logging for attachments ([f3c0853](https://github.com/kapetacom/nodejs-registry-utils/commit/f3c08539e20b12b0bedd417dfab3365194454578))
+
 ## [0.11.3](https://github.com/kapetacom/nodejs-registry-utils/compare/v0.11.2...v0.11.3) (2024-03-02)
 
 
