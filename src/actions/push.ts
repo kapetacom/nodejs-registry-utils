@@ -30,7 +30,7 @@ export const push = async (
             );
         }
     } catch (err: any) {
-        progressListener.error('Push failed');
+        progressListener.error('Push failed', err);
 
         if (options.verbose && err.stack) {
             progressListener.error(err.stack);
