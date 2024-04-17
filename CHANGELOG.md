@@ -1,3 +1,10 @@
+## [0.11.5](https://github.com/kapetacom/nodejs-registry-utils/compare/v0.11.4...v0.11.5) (2024-04-17)
+
+
+### Bug Fixes
+
+* better error reporting ([#33](https://github.com/kapetacom/nodejs-registry-utils/issues/33)) ([3116a33](https://github.com/kapetacom/nodejs-registry-utils/commit/3116a33761facfbd161720c27f38e5db249f45c3))
+
 ## [0.11.4](https://github.com/kapetacom/nodejs-registry-utils/compare/v0.11.3...v0.11.4) (2024-03-11)
 
 
