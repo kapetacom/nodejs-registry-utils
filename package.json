@@ -1,6 +1,6 @@
 {
     "name": "@kapeta/nodejs-registry-utils",
-    "version": "0.11.5",
+    "version": "0.11.6",
     "description": "NodeJS utilities for interacting with the Kapeta registry",
     "main": "dist/cjs/src/index.js",
     "exports": {

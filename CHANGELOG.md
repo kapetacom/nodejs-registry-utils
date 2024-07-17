@@ -1,3 +1,10 @@
+## [0.11.6](https://github.com/kapetacom/nodejs-registry-utils/compare/v0.11.5...v0.11.6) (2024-07-17)
+
+
+### Bug Fixes
+
+* remove zlib dependency ([#34](https://github.com/kapetacom/nodejs-registry-utils/issues/34)) ([a325afa](https://github.com/kapetacom/nodejs-registry-utils/commit/a325afaf45fdc82d168d241c0b7f5077a971074c))
+
 ## [0.11.5](https://github.com/kapetacom/nodejs-registry-utils/compare/v0.11.4...v0.11.5) (2024-04-17)
 
 
