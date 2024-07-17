@@ -7,7 +7,7 @@ import FS from 'fs';
 import Path from 'path';
 import * as glob from 'glob';
 import tar from 'tar-fs';
-import zlib from 'zlib';
+import zlib from 'node:zlib';
 import crypto from 'crypto';
 import os from 'os';
 import { promisifyStream } from '../utils/promise-utils';
