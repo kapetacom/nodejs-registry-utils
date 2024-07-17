@@ -67,8 +67,7 @@
         "tar": "^6.2.0",
         "tar-fs": "^3.0.4",
         "xml-js": "^1.6.11",
-        "yaml": "^2.2.2",
-        "zlib": "^1.0.5"
+        "yaml": "^2.2.2"
     },
     "devDependencies": {
         "@kapeta/prettier-config": "^0.6.2",
