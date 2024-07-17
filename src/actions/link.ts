@@ -38,13 +38,10 @@ export function link(progressListener: ProgressListener, source: string = proces
         throw new Error(`Failed to link asset, ${kapetaYmlFilePath} does not contain any assets`);
     }
 
-    //If there are multiple assets in the kapeta.yml - we still just create 1 symlink since both will
-    //otherwise be loaded twice
-    const assetInfo = assetInfos[0];
-    const [handle, name] = assetInfo.metadata.name.split('/');
-    const target = ClusterConfiguration.getRepositoryAssetPath(handle, name, 'local');
-
     assetInfos.forEach((assetInfo) => {
+        const [handle, name] = assetInfo.metadata.name.split('/');
+        const target = ClusterConfiguration.getRepositoryAssetPath(handle, name, 'local');
+
         if (assetInfo.kind === 'core/plan') {
             //Asset is a plan - we need to link any locally defined assets as well
             const assetFiles = glob.sync('*/**/kapeta.yml', { cwd: resolvedPath, absolute: true });
@@ -55,10 +52,10 @@ export function link(progressListener: ProgressListener, source: string = proces
                 });
             }
         }
+
+        makeSymLink(resolvedPath, target);
         progressListener.info('Linked asset %s:local\n  %s --> %s', assetInfo.metadata.name, resolvedPath, target);
     });
-
-    makeSymLink(resolvedPath, target);
 
     progressListener.check('Linking done', true);
 }
